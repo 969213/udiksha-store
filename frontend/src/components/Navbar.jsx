@@ -14,15 +14,6 @@ export default function Navbar({
 }) {
   return (
     <div className="flex flex-col w-full">
-      {/* Premium Announcement / Contact Bar */}
-      <div className="bg-gradient-to-r from-brand-blue-dark via-brand-blue to-brand-blue-dark text-slate-200 text-[9px] md:text-xs py-2 px-4 md:px-8 flex justify-center items-center gap-2 border-b border-brand-orange/20 shadow-sm z-50">
-        <div className="flex items-center gap-1.5 justify-center text-center">
-          <span className="text-brand-orange animate-bounce">👑</span>
-          <span className="font-serif-brand font-bold tracking-wider text-slate-100 uppercase text-[9px] md:text-[10px]">
-            उदीक्षा Garment Atelier - Luxury Heritage Store & Royal Apparel | Experience Royale Collection
-          </span>
-        </div>
-      </div>
 
       <nav className="sticky top-0 z-50 glass-panel border-b border-slate-200/80 px-4 md:px-8 py-4 flex items-center justify-between transition-all duration-300">
         
