@@ -67,8 +67,9 @@ export default function App() {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
 
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-
+  const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? 'http://localhost:3000'
+    : 'https://udiksha-backend.onrender.com';
 
   // 1. Fetch Categories dynamically on Mount
   useEffect(() => {

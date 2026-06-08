@@ -23,6 +23,11 @@ export default function Checkout({ isOpen, onClose, cartItems, onClearCart, user
   const [loading, setLoading] = useState(false);
   const [invoice, setInvoice] = useState(null);
 
+  const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? 'http://localhost:3000'
+    : 'https://udiksha-backend.onrender.com';
+
+
   // Auto-fill logged in user info
   useEffect(() => {
     if (isOpen && user) {
@@ -65,7 +70,6 @@ export default function Checkout({ isOpen, onClose, cartItems, onClearCart, user
 
     setLoading(true);
     try {
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
       const res = await fetch(`${API_URL}/api/auth/send-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -94,8 +98,6 @@ export default function Checkout({ isOpen, onClose, cartItems, onClearCart, user
     setLoading(true);
 
     try {
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-      
       // Verify OTP via backend API
       const otpRes = await fetch(`${API_URL}/api/auth/verify-otp`, {
         method: 'POST',

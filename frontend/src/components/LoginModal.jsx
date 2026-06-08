@@ -20,7 +20,10 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, triggerSms
 
   if (!isOpen) return null;
 
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+  const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? 'http://localhost:3000'
+    : 'https://udiksha-backend.onrender.com';
+
 
   const handleSendOtp = async (e) => {
     e.preventDefault();
@@ -253,7 +256,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, triggerSms
                   <input
                     type="email"
                     required
-                    placeholder="Enter email (mbhola099@gmail.com)"
+                    placeholder="Enter Admin Email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="w-full pl-10 pr-4 py-3 rounded-2xl border border-slate-200 focus:outline-none focus:border-brand-blue text-xs font-medium text-slate-700"

@@ -48,7 +48,10 @@ export default function Admin({ onLoginSuccess, triggerSmsAlert }) {
 
   const [colorInput, setColorInput] = useState({ name: '', hex: '#000000' });
 
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+  const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? 'http://localhost:3000'
+    : 'https://udiksha-backend.onrender.com';
+
 
   // AI Try-on & Upload States
   const [isAiTryonOpen, setIsAiTryonOpen] = useState(false);
