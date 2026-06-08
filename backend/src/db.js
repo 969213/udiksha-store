@@ -1,43 +1,97 @@
 const sqlite3 = require('sqlite3').verbose();
+const { Pool } = require('pg');
 const path = require('path');
 const fs = require('fs');
 const bcrypt = require('bcryptjs');
 
-// Ensure db directory exists
-const dbDir = path.join(__dirname, '../data');
-if (!fs.existsSync(dbDir)) {
-  fs.mkdirSync(dbDir, { recursive: true });
+// Check if we are running in cloud/production with PostgreSQL database
+const isPostgres = process.env.DATABASE_URL && (
+  process.env.DATABASE_URL.startsWith('postgres://') || 
+  process.env.DATABASE_URL.startsWith('postgresql://')
+);
+
+let db = null;
+let pgPool = null;
+
+if (isPostgres) {
+  console.log('Database Engine: PostgreSQL (Cloud Host)');
+  pgPool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false } // Required for hosting platforms like Neon/Render/Supabase
+  });
+} else {
+  console.log('Database Engine: SQLite (Local Host)');
+  // Ensure db directory exists
+  const dbDir = path.join(__dirname, '../data');
+  if (!fs.existsSync(dbDir)) {
+    fs.mkdirSync(dbDir, { recursive: true });
+  }
+  const dbPath = path.join(dbDir, 'store.db');
+  db = new sqlite3.Database(dbPath);
 }
 
-const dbPath = path.join(dbDir, 'store.db');
-const db = new sqlite3.Database(dbPath);
+// Convert SQLite '?' placeholders to PostgreSQL '$1', '$2', ... placeholders
+function convertPlaceholders(sql) {
+  let index = 1;
+  return sql.replace(/\?/g, () => `$${index++}`);
+}
 
-// Helper function to run DB actions inside a Promise (extremely robust for JavaScript)
+// Convert SQLite schema definitions to PostgreSQL compatible DDL
+function convertDdl(sql) {
+  return sql
+    .replace(/INTEGER PRIMARY KEY AUTOINCREMENT/g, 'SERIAL PRIMARY KEY')
+    .replace(/DATETIME/g, 'TIMESTAMP');
+}
+
+// Unified Helper function to run DB actions inside a Promise
 const dbRun = (sql, params = []) => {
-  return new Promise((resolve, reject) => {
-    db.run(sql, params, function (err) {
-      if (err) reject(err);
-      else resolve(this);
+  if (isPostgres) {
+    let pgSql = convertPlaceholders(sql);
+    if (pgSql.trim().toUpperCase().includes('CREATE TABLE')) {
+      pgSql = convertDdl(pgSql);
+    } else if (pgSql.trim().toUpperCase().startsWith('INSERT ')) {
+      pgSql += ' RETURNING id';
+    }
+    return pgPool.query(pgSql, params).then(result => {
+      const lastID = result.rows[0]?.id || null;
+      return { lastID, changes: result.rowCount };
     });
-  });
+  } else {
+    return new Promise((resolve, reject) => {
+      db.run(sql, params, function (err) {
+        if (err) reject(err);
+        else resolve(this);
+      });
+    });
+  }
 };
 
 const dbAll = (sql, params = []) => {
-  return new Promise((resolve, reject) => {
-    db.all(sql, params, (err, rows) => {
-      if (err) reject(err);
-      else resolve(rows);
+  if (isPostgres) {
+    const pgSql = convertPlaceholders(sql);
+    return pgPool.query(pgSql, params).then(result => result.rows);
+  } else {
+    return new Promise((resolve, reject) => {
+      db.all(sql, params, (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows);
+      });
     });
-  });
+  }
 };
 
 const dbGet = (sql, params = []) => {
-  return new Promise((resolve, reject) => {
-    db.get(sql, params, (err, row) => {
-      if (err) reject(err);
-      else resolve(row);
+  if (isPostgres) {
+    const pgSql = convertPlaceholders(sql);
+    return pgPool.query(pgSql, params).then(result => result.rows[0]);
+  } else {
+    return new Promise((resolve, reject) => {
+      db.get(sql, params, (err, row) => {
+        if (err) reject(err);
+        else resolve(row);
+      });
     });
-  });
+  }
 };
 
 // Initialize Tables and seed them with initial premium luxury clothing data
