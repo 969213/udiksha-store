@@ -203,6 +203,24 @@ const initDb = async () => {
       )
     `);
 
+    // 7. Settings Table (for Dynamic configurations like SMTP)
+    await dbRun(`
+      CREATE TABLE IF NOT EXISTS settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      )
+    `);
+
+    // Seed default SMTP settings if not exists
+    const seedSmtpUser = await dbGet('SELECT * FROM settings WHERE key = ?', ['smtp_user']);
+    if (!seedSmtpUser) {
+      await dbRun('INSERT INTO settings (key, value) VALUES (?, ?)', ['smtp_user', 'mbhola099@gmail.com']);
+    }
+    const seedSmtpPass = await dbGet('SELECT * FROM settings WHERE key = ?', ['smtp_pass']);
+    if (!seedSmtpPass) {
+      await dbRun('INSERT INTO settings (key, value) VALUES (?, ?)', ['smtp_pass', 'sdflyawgybrhdmil']);
+    }
+
     // Seed default admin user if not exists or update their credentials
     console.log('Checking for default admin user...');
     const adminUser = await dbGet('SELECT * FROM users WHERE username = ?', ['mbhola099@gmail.com']);
@@ -539,6 +557,15 @@ const getUserByUsername = async (username) => {
   return dbGet('SELECT * FROM users WHERE username = ?', [username]);
 };
 
+const getSetting = async (key) => {
+  const row = await dbGet('SELECT value FROM settings WHERE key = ?', [key]);
+  return row ? row.value : null;
+};
+
+const setSetting = async (key, value) => {
+  await dbRun('INSERT INTO settings (key, value) ON CONFLICT(key) DO UPDATE SET value = excluded.value', [key, value]);
+};
+
 // Export init function and query methods
 module.exports = {
   initDb,
@@ -551,5 +578,7 @@ module.exports = {
   createOrder,
   getOrders,
   updateOrderStatus,
-  getUserByUsername
+  getUserByUsername,
+  getSetting,
+  setSetting
 };

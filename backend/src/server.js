@@ -76,8 +76,8 @@ const gmailOtpStore = new Map();
 // Helper to send OTP via email if customer email is provided
 const sendEmailOTP = async (recipientEmail, otpCode) => {
   try {
-    const SMTP_USER = process.env.SMTP_USER || 'mbhola099@gmail.com';
-    const SMTP_PASS = process.env.SMTP_PASS || 'sdflyawgybrhdmil';
+    const SMTP_USER = await db.getSetting('smtp_user') || process.env.SMTP_USER || 'mbhola099@gmail.com';
+    const SMTP_PASS = await db.getSetting('smtp_pass') || process.env.SMTP_PASS || 'sdflyawgybrhdmil';
     
     const transporter = nodemailer.createTransport({
       service: 'gmail',
@@ -557,8 +557,8 @@ app.get('/api/orders', authenticateAdmin, async (req, res) => {
 // Helper to send 2-Step Verification OTP via Gmail
 const sendGmail2FA = async (recipientEmail, otpCode) => {
   try {
-    const SMTP_USER = process.env.SMTP_USER || 'mbhola099@gmail.com';
-    const SMTP_PASS = process.env.SMTP_PASS || 'sdflyawgybrhdmil';
+    const SMTP_USER = await db.getSetting('smtp_user') || process.env.SMTP_USER || 'mbhola099@gmail.com';
+    const SMTP_PASS = await db.getSetting('smtp_pass') || process.env.SMTP_PASS || 'sdflyawgybrhdmil';
 
     const transporter = nodemailer.createTransport({
       service: 'gmail',
@@ -605,8 +605,8 @@ const sendGmail2FA = async (recipientEmail, otpCode) => {
 // Helper to send email notification to admin via Gmail
 const sendGmailNotification = async (orderDetails) => {
   try {
-    const SMTP_USER = process.env.SMTP_USER || 'mbhola099@gmail.com';
-    const SMTP_PASS = process.env.SMTP_PASS || 'sdflyawgybrhdmil';
+    const SMTP_USER = await db.getSetting('smtp_user') || process.env.SMTP_USER || 'mbhola099@gmail.com';
+    const SMTP_PASS = await db.getSetting('smtp_pass') || process.env.SMTP_PASS || 'sdflyawgybrhdmil';
 
     const transporter = nodemailer.createTransport({
       service: 'gmail',
@@ -746,16 +746,63 @@ const sendGmailNotification = async (orderDetails) => {
 };
 
 // GET /api/admin/email-settings - Get email notifications credentials (Admin only)
-app.get('/api/admin/email-settings', authenticateAdmin, (req, res) => {
-  const SMTP_USER = process.env.SMTP_USER || 'mbhola099@gmail.com';
-  const SMTP_PASS = process.env.SMTP_PASS || 'sdflyawgybrhdmil';
-  res.json({
-    senderEmail: SMTP_USER,
-    senderPassword: SMTP_PASS,
-    service: 'Gmail',
-    status: 'Enabled (SMTP active)',
-    note: 'SMTP calls are processed automatically for every checkout. If using a personal Google account, please generate an App Password to avoid Google auth blocks.'
-  });
+app.get('/api/admin/email-settings', authenticateAdmin, async (req, res) => {
+  try {
+    const SMTP_USER = await db.getSetting('smtp_user') || process.env.SMTP_USER || 'mbhola099@gmail.com';
+    const SMTP_PASS = await db.getSetting('smtp_pass') || process.env.SMTP_PASS || 'sdflyawgybrhdmil';
+    res.json({
+      senderEmail: SMTP_USER,
+      senderPassword: SMTP_PASS,
+      service: 'Gmail',
+      status: 'Enabled (SMTP active)',
+      note: 'SMTP calls are processed automatically for every checkout. If using a personal Google account, please generate an App Password to avoid Google auth blocks.'
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/admin/email-settings - Update SMTP configurations with connection test (Admin only)
+app.post('/api/admin/email-settings', authenticateAdmin, async (req, res) => {
+  try {
+    const { senderEmail, senderPassword } = req.body;
+    if (!senderEmail || !senderPassword) {
+      return res.status(400).json({ error: 'Please provide both Gmail Address and App Password.' });
+    }
+
+    console.log(`[SMTP TEST] Verifying credentials for ${senderEmail}...`);
+    
+    // Create a temporary transporter to test connection
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: senderEmail,
+        pass: senderPassword
+      }
+    });
+
+    // Verify SMTP connection
+    try {
+      await transporter.verify();
+      console.log(`[SMTP TEST] Verification successful!`);
+    } catch (testError) {
+      console.error(`[SMTP TEST] Verification failed: ${testError.message}`);
+      return res.status(400).json({ 
+        error: `Gmail rejected credentials: ${testError.message}. Make sure 2-Step Verification is active on that Google account and you generated a correct 16-character App Password.` 
+      });
+    }
+
+    // If verified, save settings in the database!
+    await db.setSetting('smtp_user', senderEmail);
+    await db.setSetting('smtp_pass', senderPassword);
+
+    res.json({
+      success: true,
+      message: 'SMTP settings tested, verified, and saved successfully!'
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // 8. POST /api/orders - Place an order with inventory verification & invoice generation

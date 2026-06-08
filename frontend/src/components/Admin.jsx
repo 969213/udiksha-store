@@ -52,6 +52,65 @@ export default function Admin({ onLoginSuccess, triggerSmsAlert }) {
 
   const [colorInput, setColorInput] = useState({ name: '', hex: '#000000' });
 
+  // Dynamic Gmail SMTP State
+  const [smtpUser, setSmtpUser] = useState('mbhola099@gmail.com');
+  const [smtpPass, setSmtpPass] = useState('sdflyawgybrhdmil');
+  const [smtpLoading, setSmtpLoading] = useState(false);
+  const [smtpStatus, setSmtpStatus] = useState('Connected'); // 'Connected' or 'Disconnected' or 'Checking'
+  const [smtpError, setSmtpError] = useState('');
+  const [smtpSuccessMsg, setSmtpSuccessMsg] = useState('');
+
+  // Fetch SMTP Settings on mount or token change
+  useEffect(() => {
+    if (token) {
+      fetch(`${API_URL}/api/admin/email-settings`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.senderEmail) {
+            setSmtpUser(data.senderEmail);
+            setSmtpPass(data.senderPassword);
+          }
+        })
+        .catch(err => console.error('Error loading SMTP settings:', err));
+    }
+  }, [token]);
+
+  // Handle Save and Test SMTP connection
+  const handleSaveSmtp = async (e) => {
+    e.preventDefault();
+    setSmtpError('');
+    setSmtpSuccessMsg('');
+    setSmtpLoading(true);
+    setSmtpStatus('Checking');
+
+    try {
+      const res = await fetch(`${API_URL}/api/admin/email-settings`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ senderEmail: smtpUser, senderPassword: smtpPass })
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setSmtpStatus('Disconnected');
+        throw new Error(data.error || 'Failed to update SMTP settings.');
+      }
+
+      setSmtpStatus('Connected');
+      setSmtpSuccessMsg('SMTP settings verified & saved successfully!');
+      setTimeout(() => setSmtpSuccessMsg(''), 5000);
+    } catch (err) {
+      setSmtpError(err.message);
+    } finally {
+      setSmtpLoading(false);
+    }
+  };
+
   const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
     ? 'http://localhost:3000'
     : 'https://udiksha-backend.onrender.com';
@@ -967,30 +1026,74 @@ export default function Admin({ onLoginSuccess, triggerSmsAlert }) {
                 <h3 className="font-serif-brand text-sm font-bold text-slate-800">Gmail SMTP Settings</h3>
               </div>
               
-              <div className="space-y-3.5 text-[11px] font-sans">
-                <div className="bg-emerald-50 border border-emerald-200/30 rounded-xl p-2.5 flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span className="font-bold text-emerald-800 uppercase tracking-wider text-[9px]">SMTP: Connected</span>
+              <form onSubmit={handleSaveSmtp} className="space-y-3.5 text-[11px] font-sans">
+                {/* SMTP Connection Status */}
+                {smtpStatus === 'Connected' && (
+                  <div className="bg-emerald-50 border border-emerald-200/30 rounded-xl p-2.5 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <span className="font-bold text-emerald-800 uppercase tracking-wider text-[9px]">SMTP STATUS: Verified & Connected</span>
+                  </div>
+                )}
+                {smtpStatus === 'Checking' && (
+                  <div className="bg-amber-50 border border-amber-200/30 rounded-xl p-2.5 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                    <span className="font-bold text-amber-800 uppercase tracking-wider text-[9px]">SMTP STATUS: Testing Connection...</span>
+                  </div>
+                )}
+                {smtpStatus === 'Disconnected' && (
+                  <div className="bg-red-50 border border-red-200/30 rounded-xl p-2.5 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-red-500" />
+                    <span className="font-bold text-red-800 uppercase tracking-wider text-[9px]">SMTP STATUS: Disconnected / Rejected</span>
+                  </div>
+                )}
+
+                {smtpSuccessMsg && (
+                  <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl font-bold text-emerald-800 text-[10px]">
+                    ✓ {smtpSuccessMsg}
+                  </div>
+                )}
+
+                {smtpError && (
+                  <div className="p-2.5 bg-red-50 border border-red-200 rounded-xl font-bold text-red-700 text-[10px] leading-relaxed">
+                    ⚠️ {smtpError}
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-[9px] font-bold text-slate-400 uppercase mb-1">Gmail Address</label>
+                  <input
+                    type="email"
+                    required
+                    value={smtpUser}
+                    onChange={(e) => setSmtpUser(e.target.value)}
+                    className="w-full bg-white border border-slate-200 px-2.5 py-1.5 rounded-lg font-mono text-[10px] text-slate-700 focus:outline-none focus:border-brand-blue font-bold"
+                  />
                 </div>
 
                 <div>
-                  <span className="block text-[9px] font-bold text-slate-400 uppercase mb-1">Gmail Account ID</span>
-                  <div className="bg-white border border-slate-200 px-2.5 py-1.5 rounded-lg font-mono text-[10px] text-slate-700 select-all font-bold">
-                    mbhola099@gmail.com
-                  </div>
+                  <label className="block text-[9px] font-bold text-slate-400 uppercase mb-1">Gmail App Password (16-char)</label>
+                  <input
+                    type="password"
+                    required
+                    value={smtpPass}
+                    onChange={(e) => setSmtpPass(e.target.value)}
+                    className="w-full bg-white border border-slate-200 px-2.5 py-1.5 rounded-lg font-mono text-[10px] text-slate-700 focus:outline-none focus:border-brand-blue font-bold"
+                    placeholder="Enter App Password"
+                  />
                 </div>
 
-                <div>
-                  <span className="block text-[9px] font-bold text-slate-400 uppercase mb-1">App Secret / Password</span>
-                  <div className="bg-white border border-slate-200 px-2.5 py-1.5 rounded-lg font-mono text-[10px] text-slate-700 select-all font-bold">
-                    Panditain@#143
-                  </div>
-                </div>
+                <button
+                  type="submit"
+                  disabled={smtpLoading}
+                  className="w-full py-2.5 bg-brand-blue hover:bg-brand-blue-dark text-white rounded-full font-bold text-[10px] uppercase tracking-wider transition-colors disabled:opacity-50"
+                >
+                  {smtpLoading ? 'Testing & Saving...' : 'Verify & Save Settings'}
+                </button>
 
                 <div className="p-2 bg-brand-blue/5 border border-brand-blue/10 rounded-xl text-[9px] text-slate-500 leading-relaxed font-medium">
-                  Order notifications are sent automatically from this address to your inbox on every checkout.
+                  OTP and Order notification emails are sent automatically from this address to your inbox. Make sure to use a 16-character App Password (not your account password).
                 </div>
-              </div>
+              </form>
             </div>
 
           </div>
