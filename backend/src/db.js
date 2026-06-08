@@ -1,8 +1,9 @@
-const sqlite3 = require('sqlite3').verbose();
 const { Pool } = require('pg');
 const path = require('path');
 const fs = require('fs');
 const bcrypt = require('bcryptjs');
+
+let sqlite3 = null;
 
 // Check if we are running in cloud/production with PostgreSQL database
 let isPostgres = process.env.DATABASE_URL && (
@@ -22,6 +23,14 @@ const initializePg = () => {
 
 const initializeSqlite = () => {
   console.log('Database Engine: SQLite (Local Host)');
+  if (!sqlite3) {
+    try {
+      sqlite3 = require('sqlite3').verbose();
+    } catch (err) {
+      console.error('Failed to load sqlite3 module. Please run npm install sqlite3:', err.message);
+      throw err;
+    }
+  }
   // Ensure db directory exists
   const dbDir = path.join(__dirname, '../data');
   if (!fs.existsSync(dbDir)) {
