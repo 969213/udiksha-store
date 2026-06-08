@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: udiksha-backend
+    env: node
+    buildCommand: npm install
+    startCommand: node src/server.js
+    rootDir: backend
+    envVars:
+      - key: PORT
+        value: 3000
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: udiksha-db
+          property: connectionString
+      - key: CORS_ORIGIN
+        value: '*' # Allows access from any frontend origin (like Vercel)
+
+databases:
+  - name: udiksha-db
+    plan: free # 100% Free plan on Render
