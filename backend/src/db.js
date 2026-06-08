@@ -198,7 +198,7 @@ const initDb = async () => {
 
     // Check if products already exist. If not, seed them!
     const productCount = await dbGet('SELECT COUNT(*) as count FROM products');
-    if (productCount.count === 0) {
+    if (parseInt(productCount.count) === 0) {
       console.log('Seeding initial luxury garments data...');
 
       const sampleProducts = [
