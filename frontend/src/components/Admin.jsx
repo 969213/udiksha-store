@@ -23,6 +23,9 @@ export default function Admin({ onLoginSuccess, triggerSmsAlert }) {
   const [sentAdminOtp, setSentAdminOtp] = useState('');
 
   const [loginError, setLoginError] = useState('');
+  const [twoFactorRequired, setTwoFactorRequired] = useState(false);
+  const [twoFactorOtp, setTwoFactorOtp] = useState('');
+  const [twoFactorLoading, setTwoFactorLoading] = useState(false);
 
   const [activeTab, setActiveTab] = useState('inventory'); // 'inventory' or 'orders'
   const [products, setProducts] = useState([]);
@@ -180,6 +183,15 @@ export default function Admin({ onLoginSuccess, triggerSmsAlert }) {
       if (!res.ok) {
         throw new Error(data.error || 'Failed to login.');
       }
+
+      if (data.twoFactorRequired) {
+        setTwoFactorRequired(true);
+        if (triggerSmsAlert) {
+          triggerSmsAlert(loginUsername, 'Check email or console');
+        }
+        return;
+      }
+
       localStorage.setItem('adminToken', data.token);
       localStorage.setItem('adminUsername', data.username);
       setToken(data.token);
@@ -195,6 +207,46 @@ export default function Admin({ onLoginSuccess, triggerSmsAlert }) {
       setLoginError(err.message);
     } finally {
       setLoginLoading(false);
+    }
+  };
+
+  // Handle 2FA verification code submission
+  const handleVerifyTwoFactor = async (e) => {
+    e.preventDefault();
+    setLoginError('');
+    
+    if (!twoFactorOtp || twoFactorOtp.length !== 4) {
+      setLoginError('Please enter the 4-digit verification code.');
+      return;
+    }
+
+    setTwoFactorLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/api/auth/verify-2fa`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: loginUsername, otp: twoFactorOtp })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Verification failed.');
+      }
+
+      localStorage.setItem('adminToken', data.token);
+      localStorage.setItem('adminUsername', data.username);
+      setToken(data.token);
+      setAdminUsername(data.username);
+      if (onLoginSuccess) {
+        onLoginSuccess({
+          token: data.token,
+          username: data.username,
+          role: 'admin'
+        });
+      }
+    } catch (err) {
+      setLoginError(err.message);
+    } finally {
+      setTwoFactorLoading(false);
     }
   };
 
@@ -562,6 +614,41 @@ export default function Admin({ onLoginSuccess, triggerSmsAlert }) {
                 </form>
               )}
             </div>
+          ) : twoFactorRequired ? (
+            <form onSubmit={handleVerifyTwoFactor} className="space-y-5">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1.5 font-sans">2-Step Verification Code</label>
+                <input
+                  type="text"
+                  required
+                  maxLength={4}
+                  placeholder="Enter 4-digit OTP"
+                  value={twoFactorOtp}
+                  onChange={(e) => setTwoFactorOtp(e.target.value)}
+                  className="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:outline-none focus:border-brand-blue text-xs font-medium text-slate-700 tracking-[0.5em] text-center"
+                />
+                <span className="block text-[10px] text-slate-400 mt-1.5 text-center font-medium font-sans">
+                  We sent a 2-Step Verification code to your Gmail address. Check your inbox or console.
+                </span>
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setTwoFactorRequired(false)}
+                  className="w-1/3 py-4 border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-full font-bold text-xs uppercase tracking-wider transition-all"
+                >
+                  Back
+                </button>
+                <button
+                  type="submit"
+                  disabled={twoFactorLoading}
+                  className="w-2/3 py-4 bg-brand-orange hover:bg-brand-orange-dark text-white rounded-full font-bold text-xs uppercase tracking-wider transition-all shadow-lg shadow-brand-orange/10 disabled:opacity-50"
+                >
+                  {twoFactorLoading ? 'Verifying...' : 'Verify Code'}
+                </button>
+              </div>
+            </form>
           ) : (
             <form onSubmit={handleLogin} className="space-y-5">
               <div>
@@ -747,7 +834,7 @@ export default function Admin({ onLoginSuccess, triggerSmsAlert }) {
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Garment Photo (Upload File or URL)</label>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Garment Photo (Upload Image File)</label>
                     <div className="flex flex-col gap-2">
                       <input
                         type="file"
@@ -755,14 +842,19 @@ export default function Admin({ onLoginSuccess, triggerSmsAlert }) {
                         onChange={handleFileChange}
                         className="w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-brand-blue/10 file:text-brand-blue hover:file:bg-brand-blue/20 cursor-pointer"
                       />
-                      <input
-                        type="text"
-                        required
-                        placeholder="https://images.unsplash.com/..."
-                        value={newProduct.imageUrl}
-                        onChange={(e) => setNewProduct({ ...newProduct, imageUrl: e.target.value })}
-                        className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-brand-blue text-xs"
-                      />
+                      {newProduct.imageUrl && (
+                        <div className="mt-2 relative rounded-xl overflow-hidden border border-slate-200 bg-slate-50 aspect-video flex items-center justify-center">
+                          <img src={newProduct.imageUrl} alt="Uploaded preview" className="max-h-full max-w-full object-contain" />
+                          <button
+                            type="button"
+                            onClick={() => setNewProduct(prev => ({ ...prev, imageUrl: '' }))}
+                            className="absolute top-2 right-2 p-1.5 bg-red-500 hover:bg-red-600 text-white rounded-full transition-colors"
+                            title="Remove Image"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
 

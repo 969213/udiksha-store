@@ -16,6 +16,9 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, triggerSms
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [passwordLoading, setPasswordLoading] = useState(false);
+  const [twoFactorRequired, setTwoFactorRequired] = useState(false);
+  const [twoFactorOtp, setTwoFactorOtp] = useState('');
+  const [twoFactorLoading, setTwoFactorLoading] = useState(false);
 
   const [error, setError] = useState('');
 
@@ -116,6 +119,15 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, triggerSms
         throw new Error(data.error || 'Invalid credentials.');
       }
 
+      if (data.twoFactorRequired) {
+        setTwoFactorRequired(true);
+        // Alert user of simulated OTP dispatch
+        if (triggerSmsAlert) {
+          triggerSmsAlert(email, 'Check email or console');
+        }
+        return;
+      }
+
       onLoginSuccess({
         token: data.token,
         username: data.username,
@@ -126,6 +138,41 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, triggerSms
       setError(err.message);
     } finally {
       setPasswordLoading(false);
+    }
+  };
+
+  const handleVerifyTwoFactor = async (e) => {
+    e.preventDefault();
+    setError('');
+
+    if (!twoFactorOtp || twoFactorOtp.length !== 4) {
+      setError('Please enter the 4-digit verification code.');
+      return;
+    }
+
+    setTwoFactorLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/api/auth/verify-2fa`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: email, otp: twoFactorOtp })
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Verification failed.');
+      }
+
+      onLoginSuccess({
+        token: data.token,
+        username: data.username,
+        role: 'admin'
+      });
+      onClose();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setTwoFactorLoading(false);
     }
   };
 
@@ -251,6 +298,44 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, triggerSms
                 Enter <strong className="text-brand-blue">+919519764098</strong> (Owner) or <strong className="text-brand-blue">+918114247911</strong> (Developer) to log in as Admin. Any other number logs you in as a Customer.
               </div>
             </div>
+          ) : twoFactorRequired ? (
+            <form onSubmit={handleVerifyTwoFactor} className="space-y-4">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1.5">2-Step Verification Code</label>
+                <div className="relative flex items-center">
+                  <KeyRound className="absolute left-3 w-4 h-4 text-slate-400" />
+                  <input
+                    type="text"
+                    required
+                    maxLength={4}
+                    placeholder="Enter 4-digit OTP"
+                    value={twoFactorOtp}
+                    onChange={(e) => setTwoFactorOtp(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 rounded-2xl border border-slate-200 focus:outline-none focus:border-brand-blue text-xs font-medium text-slate-700 tracking-[0.5em] text-center"
+                  />
+                </div>
+                <span className="block text-[10px] text-slate-400 mt-1.5 text-center font-medium">
+                  We sent a 2-Step Verification code to your Gmail address. Check your inbox or console.
+                </span>
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setTwoFactorRequired(false)}
+                  className="w-1/3 py-4 border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-full font-bold text-xs uppercase tracking-wider transition-all"
+                >
+                  Back
+                </button>
+                <button
+                  type="submit"
+                  disabled={twoFactorLoading}
+                  className="w-2/3 py-4 bg-brand-orange hover:bg-brand-orange-dark text-white rounded-full font-bold text-xs uppercase tracking-wider transition-all shadow-lg shadow-brand-orange/10 disabled:opacity-50"
+                >
+                  {twoFactorLoading ? 'Verifying...' : 'Verify Code'}
+                </button>
+              </div>
+            </form>
           ) : (
             <form onSubmit={handlePasswordLogin} className="space-y-4">
               <div>
