@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, MapPin, CreditCard, KeyRound, CheckCircle2, ChevronRight, ArrowLeft } from 'lucide-react';
 
-export default function Checkout({ isOpen, onClose, cartItems, onClearCart }) {
+export default function Checkout({ isOpen, onClose, cartItems, onClearCart, user, triggerSmsAlert }) {
   const [step, setStep] = useState(1); // 1: Address, 2: Payment, 3: OTP, 4: Invoice
   const [addressForm, setAddressForm] = useState({
     name: '',
@@ -23,6 +23,18 @@ export default function Checkout({ isOpen, onClose, cartItems, onClearCart }) {
   const [loading, setLoading] = useState(false);
   const [invoice, setInvoice] = useState(null);
 
+  // Auto-fill logged in user info
+  useEffect(() => {
+    if (isOpen && user) {
+      const isEmail = user.username.includes('@');
+      setAddressForm(prev => ({
+        ...prev,
+        phone: isEmail ? prev.phone : user.username,
+        name: isEmail ? '' : prev.name
+      }));
+    }
+  }, [isOpen, user]);
+
   if (!isOpen) return null;
 
   const total = cartItems.reduce((sum, item) => {
@@ -40,7 +52,7 @@ export default function Checkout({ isOpen, onClose, cartItems, onClearCart }) {
     setStep(2);
   };
 
-  const handlePaymentSubmit = (e) => {
+  const handlePaymentSubmit = async (e) => {
     e.preventDefault();
     if (paymentMethod === 'UPI' && !paymentDetails.vpa) {
       alert('Please enter your Virtual Payment Address (e.g. user@upi).');
@@ -50,7 +62,30 @@ export default function Checkout({ isOpen, onClose, cartItems, onClearCart }) {
       alert('Please enter all card details.');
       return;
     }
-    setStep(3);
+
+    setLoading(true);
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const res = await fetch(`${API_URL}/api/auth/send-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: addressForm.phone })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to send verification OTP.');
+      }
+      
+      // Trigger the mock SMS notification
+      if (data.otp && triggerSmsAlert) {
+        triggerSmsAlert(addressForm.phone, data.otp);
+      }
+      setStep(3);
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleVerifyOtp = async (e) => {
@@ -61,11 +96,11 @@ export default function Checkout({ isOpen, onClose, cartItems, onClearCart }) {
     try {
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
       
-      // Call backend OTP verification
-      const otpRes = await fetch(`${API_URL}/api/orders/verify-otp`, {
+      // Verify OTP via backend API
+      const otpRes = await fetch(`${API_URL}/api/auth/verify-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ otp: otpCode })
+        body: JSON.stringify({ phone: addressForm.phone, otp: otpCode })
       });
       
       const otpData = await otpRes.json();
@@ -108,12 +143,35 @@ export default function Checkout({ isOpen, onClose, cartItems, onClearCart }) {
       setInvoice(orderData);
       setStep(4);
       onClearCart();
+
+      // BUILD WHATSAPP REDIRECT TEXT
+      const itemsList = cartItems.map(item => `- ${item.product.title} x${item.quantity} (${item.size} / ${item.color.name})`).join('\n');
+      const waMessage = `👑 *उदीक्षा Garment - New Order Request* 👑\n\n` + 
+        `*Customer Details:*\n` +
+        `👤 *Name:* ${addressForm.name}\n` +
+        `📞 *Phone:* ${addressForm.phone}\n` +
+        `📍 *Address:* ${addressForm.address}, ${addressForm.city} - ${addressForm.zip}\n\n` +
+        `*Order Items:*\n${itemsList}\n\n` +
+        `💰 *Total Paid:* ₹${Math.round(total).toLocaleString()}\n` +
+        `💳 *Payment Method:* ${paymentMethod}\n` +
+        `🧾 *Bill ID:* ${orderData.bill_id}\n\n` +
+        `Please confirm this order!`;
+
+      const encodedMsg = encodeURIComponent(waMessage);
+      const waUrl = `https://api.whatsapp.com/send?phone=918114247911&text=${encodedMsg}`;
+      
+      // Auto open WhatsApp to notify the developer/owner!
+      setTimeout(() => {
+        window.open(waUrl, '_blank');
+      }, 1500);
+
     } catch (error) {
       setOtpError(error.message);
     } finally {
       setLoading(false);
     }
   };
+
 
   return (
     <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm fade-in">

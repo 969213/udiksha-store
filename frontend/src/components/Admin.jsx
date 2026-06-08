@@ -1,13 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, Package, History, Settings, RefreshCw, Layers } from 'lucide-react';
 
-export default function Admin() {
+export default function Admin({ onLoginSuccess, triggerSmsAlert }) {
   const [token, setToken] = useState(localStorage.getItem('adminToken') || '');
   const [adminUsername, setAdminUsername] = useState(localStorage.getItem('adminUsername') || '');
+  
+  // Tab selector for admin login
+  const [adminLoginTab, setAdminLoginTab] = useState('phone'); // 'phone' or 'password'
+  
+  // Password login state
   const [loginUsername, setLoginUsername] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
-  const [loginError, setLoginError] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
+  
+  // Phone login state
+  const [adminPhone, setAdminPhone] = useState('');
+  const [adminOtp, setAdminOtp] = useState('');
+  const [adminOtpSent, setAdminOtpSent] = useState(false);
+  const [adminOtpLoading, setAdminOtpLoading] = useState(false);
+  const [adminOtpVerifyLoading, setAdminOtpVerifyLoading] = useState(false);
+
+  const [loginError, setLoginError] = useState('');
 
   const [activeTab, setActiveTab] = useState('inventory'); // 'inventory' or 'orders'
   const [products, setProducts] = useState([]);
@@ -42,9 +55,10 @@ export default function Admin() {
     localStorage.removeItem('adminUsername');
     setToken('');
     setAdminUsername('');
+    if (onLoginSuccess) onLoginSuccess(null);
   };
 
-  // Handle Login submission
+  // Handle Login submission via password
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoginError('');
@@ -63,12 +77,89 @@ export default function Admin() {
       localStorage.setItem('adminUsername', data.username);
       setToken(data.token);
       setAdminUsername(data.username);
+      if (onLoginSuccess) {
+        onLoginSuccess({
+          token: data.token,
+          username: data.username,
+          role: 'admin'
+        });
+      }
     } catch (err) {
       setLoginError(err.message);
     } finally {
       setLoginLoading(false);
     }
   };
+
+  // Handle Admin OTP sending
+  const handleAdminSendOtp = async (e) => {
+    e.preventDefault();
+    setLoginError('');
+
+    if (!adminPhone || adminPhone.length < 10) {
+      setLoginError('Please enter a valid phone number.');
+      return;
+    }
+
+    const cleanPhone = adminPhone.replace(/[\s-]/g, '');
+    const isAdmin = cleanPhone.includes('9519764098') || cleanPhone.includes('8114247911');
+    if (!isAdmin) {
+      setLoginError('Only Owner (+919519764098) or Developer (+918114247911) phone numbers can access Admin.');
+      return;
+    }
+
+    setAdminOtpLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/api/auth/send-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: adminPhone })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to send OTP.');
+      }
+      setAdminOtpSent(true);
+      if (data.otp && triggerSmsAlert) {
+        triggerSmsAlert(adminPhone, data.otp);
+      }
+    } catch (err) {
+      setLoginError(err.message);
+    } finally {
+      setAdminOtpLoading(false);
+    }
+  };
+
+  // Handle Admin OTP verification
+  const handleAdminPhoneLogin = async (e) => {
+    e.preventDefault();
+    setLoginError('');
+    setAdminOtpVerifyLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/api/auth/verify-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: adminPhone, otp: adminOtp })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Invalid OTP.');
+      }
+      if (data.role !== 'admin') {
+        throw new Error('Unauthorized role. Contact system developer.');
+      }
+      localStorage.setItem('adminToken', data.token);
+      localStorage.setItem('adminUsername', data.username);
+      setToken(data.token);
+      setAdminUsername(data.username);
+      if (onLoginSuccess) onLoginSuccess(data);
+    } catch (err) {
+      setLoginError(err.message);
+    } finally {
+      setAdminOtpVerifyLoading(false);
+    }
+  };
+
 
   // Fetch admin stats on mount/refresh
   useEffect(() => {
@@ -256,63 +347,153 @@ export default function Admin() {
   // Render Login screen if not authenticated
   if (!token) {
     return (
-      <div class="min-h-[70vh] flex items-center justify-center px-4 py-12">
-        <div class="w-full max-w-md bg-white border border-slate-200/60 rounded-[32px] p-8 shadow-xl shadow-brand-blue/5 fade-in">
-          <div class="text-center mb-8">
-            <span class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-brand-blue/5 text-brand-blue mb-4 text-2xl">
+      <div className="min-h-[70vh] flex items-center justify-center px-4 py-12">
+        <div className="w-full max-w-md bg-white border border-slate-200/60 rounded-[32px] p-8 shadow-xl shadow-brand-blue/5 fade-in">
+          <div className="text-center mb-8">
+            <span className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-brand-blue/5 text-brand-blue mb-4 text-2xl">
               👑
             </span>
-            <h2 class="font-serif-brand text-2xl font-extrabold text-brand-blue tracking-wide">
+            <h2 className="font-serif-brand text-2xl font-extrabold text-brand-blue tracking-wide">
               UDIKSHA Atelier
             </h2>
-            <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-1">
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-1">
               Internal Production Login
             </p>
           </div>
 
+          {/* Admin Login Method Tabs */}
+          <div className="flex bg-slate-100 p-1 mb-6 rounded-xl border border-slate-200">
+            <button
+              onClick={() => { setAdminLoginTab('phone'); setLoginError(''); }}
+              className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
+                adminLoginTab === 'phone'
+                  ? 'bg-white text-brand-blue shadow-sm border border-slate-200/50'
+                  : 'text-slate-500 hover:text-brand-blue'
+              }`}
+            >
+              Phone & OTP
+            </button>
+            <button
+              onClick={() => { setAdminLoginTab('password'); setLoginError(''); }}
+              className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
+                adminLoginTab === 'password'
+                  ? 'bg-white text-brand-blue shadow-sm border border-slate-200/50'
+                  : 'text-slate-500 hover:text-brand-blue'
+              }`}
+            >
+              Password
+            </button>
+          </div>
+
           {loginError && (
-            <div class="mb-5 p-4 bg-red-50 border border-red-200/50 rounded-2xl text-xs font-bold text-red-600 flex items-center gap-2">
+            <div className="mb-5 p-4 bg-red-50 border border-red-200/50 rounded-2xl text-xs font-bold text-red-600 flex items-center gap-2">
               ⚠️ {loginError}
             </div>
           )}
 
-          <form onSubmit={handleLogin} class="space-y-5">
-            <div>
-              <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1.5">Username</label>
-              <input
-                type="text"
-                required
-                placeholder="Enter username"
-                value={loginUsername}
-                onChange={(e) => setLoginUsername(e.target.value)}
-                class="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:outline-none focus:border-brand-blue text-xs font-medium text-slate-700"
-              />
+          {adminLoginTab === 'phone' ? (
+            <div className="space-y-5">
+              {!adminOtpSent ? (
+                <form onSubmit={handleAdminSendOtp} className="space-y-5">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1.5 font-sans">Owner / Developer Number</label>
+                    <input
+                      type="tel"
+                      required
+                      placeholder="e.g. 9519764098"
+                      value={adminPhone}
+                      onChange={(e) => setAdminPhone(e.target.value)}
+                      className="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:outline-none focus:border-brand-blue text-xs font-medium text-slate-700"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={adminOtpLoading}
+                    className="w-full py-4 bg-brand-blue hover:bg-brand-blue-dark text-white rounded-full font-bold text-xs uppercase tracking-wider transition-all shadow-lg shadow-brand-blue/10 disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {adminOtpLoading ? 'Sending OTP...' : 'Send Login OTP'}
+                  </button>
+                </form>
+              ) : (
+                <form onSubmit={handleAdminPhoneLogin} className="space-y-5">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1.5 font-sans">Enter 4-Digit OTP</label>
+                    <input
+                      type="text"
+                      required
+                      maxLength={4}
+                      placeholder="Enter OTP code"
+                      value={adminOtp}
+                      onChange={(e) => setAdminOtp(e.target.value)}
+                      className="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:outline-none focus:border-brand-blue text-xs font-medium text-slate-700 tracking-[0.5em] text-center"
+                    />
+                    <span className="block text-[10px] text-slate-400 mt-1.5 text-center font-medium font-sans">
+                      Verify the OTP sent to your simulated alert.
+                    </span>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setAdminOtpSent(false)}
+                      className="w-1/3 py-4 border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-full font-bold text-xs uppercase tracking-wider transition-all"
+                    >
+                      Back
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={adminOtpVerifyLoading}
+                      className="w-2/3 py-4 bg-brand-orange hover:bg-brand-orange-dark text-white rounded-full font-bold text-xs uppercase tracking-wider transition-all shadow-lg shadow-brand-orange/10 disabled:opacity-50"
+                    >
+                      {adminOtpVerifyLoading ? 'Verifying...' : 'Verify & Enter'}
+                    </button>
+                  </div>
+                </form>
+              )}
             </div>
+          ) : (
+            <form onSubmit={handleLogin} className="space-y-5">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1.5">Username</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Enter username"
+                  value={loginUsername}
+                  onChange={(e) => setLoginUsername(e.target.value)}
+                  className="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:outline-none focus:border-brand-blue text-xs font-medium text-slate-700"
+                />
+              </div>
 
-            <div>
-              <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1.5">Password</label>
-              <input
-                type="password"
-                required
-                placeholder="Enter password"
-                value={loginPassword}
-                onChange={(e) => setLoginPassword(e.target.value)}
-                class="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:outline-none focus:border-brand-blue text-xs font-medium text-slate-700"
-              />
-            </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1.5">Password</label>
+                <input
+                  type="password"
+                  required
+                  placeholder="Enter password"
+                  value={loginPassword}
+                  onChange={(e) => setLoginPassword(e.target.value)}
+                  className="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:outline-none focus:border-brand-blue text-xs font-medium text-slate-700"
+                />
+              </div>
 
-            <button
-              type="submit"
-              disabled={loginLoading}
-              class="w-full py-4 bg-brand-blue hover:bg-brand-blue-dark text-white rounded-full font-bold text-xs uppercase tracking-wider transition-all shadow-lg shadow-brand-blue/10 disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              {loginLoading ? 'Authenticating...' : 'Secure Login'}
-            </button>
-          </form>
+              <button
+                type="submit"
+                disabled={loginLoading}
+                className="w-full py-4 bg-brand-blue hover:bg-brand-blue-dark text-white rounded-full font-bold text-xs uppercase tracking-wider transition-all shadow-lg shadow-brand-blue/10 disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {loginLoading ? 'Authenticating...' : 'Secure Login'}
+              </button>
+            </form>
+          )}
 
-          <div class="mt-8 pt-6 border-t border-slate-100 text-center">
-            <span class="text-[9px] font-extrabold text-brand-orange bg-brand-orange/5 border border-brand-orange/10 px-3 py-1 rounded-full uppercase">
-              Demo Login: mbhola099@gmail.com / Panditain@#143
+          <div className="mt-8 pt-6 border-t border-slate-100 text-center flex flex-col gap-2 font-sans">
+            <span className="text-[9px] font-extrabold text-brand-orange bg-brand-orange/5 border border-brand-orange/10 px-3 py-1 rounded-full uppercase">
+              Demo Admin Password: mbhola099@gmail.com / Panditain@#143
+            </span>
+            <span className="text-[9px] font-extrabold text-brand-blue bg-brand-blue/5 border border-brand-blue/10 px-3 py-1 rounded-full uppercase">
+              Demo Admin Phones: +919519764098 or +918114247911
             </span>
           </div>
         </div>

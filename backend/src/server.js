@@ -56,6 +56,104 @@ const authenticateAdmin = (req, res, next) => {
 
 // Endpoints:
 
+// In-memory store for OTPs
+const phoneOtpStore = new Map();
+
+// POST /api/auth/send-otp - Send OTP for Phone Login
+app.post('/api/auth/send-otp', (req, res) => {
+  try {
+    let { phone } = req.body;
+    if (!phone) {
+      return res.status(400).json({ error: 'Please provide a valid phone number.' });
+    }
+    
+    // Normalize phone number (remove spaces, dashes, ensure prefix)
+    const cleanPhone = phone.replace(/[\s-]/g, '');
+    
+    // Generate a 4-digit OTP
+    const otp = Math.floor(1000 + Math.random() * 9000).toString();
+    
+    // Store OTP in memory with 5 min expiration
+    phoneOtpStore.set(cleanPhone, {
+      otp,
+      expiresAt: Date.now() + 5 * 60 * 1000
+    });
+    
+    console.log(`\n======================================`);
+    console.log(`[SMS GATEWAY] Sent SMS to ${cleanPhone}`);
+    console.log(`[SMS GATEWAY] OTP is: ${otp}`);
+    console.log(`======================================\n`);
+    
+    res.json({
+      success: true,
+      message: 'OTP sent successfully.',
+      otp // Send OTP in response for testing/demo convenience
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/auth/verify-otp - Verify OTP and Login
+app.post('/api/auth/verify-otp', async (req, res) => {
+  try {
+    let { phone, otp } = req.body;
+    if (!phone || !otp) {
+      return res.status(400).json({ error: 'Please provide phone number and OTP.' });
+    }
+    
+    const cleanPhone = phone.replace(/[\s-]/g, '');
+    const record = phoneOtpStore.get(cleanPhone);
+    
+    if (!record) {
+      return res.status(400).json({ error: 'No OTP request found for this phone number. Please request again.' });
+    }
+    
+    if (Date.now() > record.expiresAt) {
+      phoneOtpStore.delete(cleanPhone);
+      return res.status(400).json({ error: 'OTP has expired. Please request a new one.' });
+    }
+    
+    if (record.otp !== otp) {
+      return res.status(400).json({ error: 'Invalid OTP. Please check the code and try again.' });
+    }
+    
+    // OTP verified! Clear it.
+    phoneOtpStore.delete(cleanPhone);
+    
+    // Check if phone number belongs to owner or developer
+    // Owner: +919519764098 or 9519764098
+    // Developer: +918114247911 or 8114247911
+    const isAdminPhone = 
+      cleanPhone.includes('9519764098') || 
+      cleanPhone.includes('8114247911');
+      
+    let role = 'customer';
+    let username = cleanPhone;
+    
+    if (isAdminPhone) {
+      role = 'admin';
+      username = 'mbhola099@gmail.com'; // Log in as seeded admin
+    }
+    
+    const token = jwt.sign(
+      { userId: cleanPhone, username, role },
+      JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+    
+    res.json({
+      success: true,
+      message: 'Login successful.',
+      token,
+      username,
+      role
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // 0. POST /api/auth/login - Admin Login authentication
 app.post('/api/auth/login', async (req, res) => {
   try {
@@ -90,6 +188,7 @@ app.post('/api/auth/login', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
 
 // 1. GET /api/products - Get list of garments with search, filter, and sorting
 app.get('/api/products', async (req, res) => {

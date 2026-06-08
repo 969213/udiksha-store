@@ -5,12 +5,57 @@ import Catalog from './components/Catalog';
 import Cart from './components/Cart';
 import Checkout from './components/Checkout';
 import Admin from './components/Admin';
+import LoginModal from './components/LoginModal';
 
 export default function App() {
   const [view, setView] = useState('store'); // 'store' or 'admin'
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [sortOption, setSortOption] = useState('latest');
+  
+  // User Authentication State
+  const [user, setUser] = useState(() => {
+    const token = localStorage.getItem('userToken') || localStorage.getItem('adminToken');
+    const username = localStorage.getItem('userUsername') || localStorage.getItem('adminUsername');
+    const role = localStorage.getItem('userRole') || (localStorage.getItem('adminToken') ? 'admin' : null);
+    return token ? { token, username, role } : null;
+  });
+
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [smsAlert, setSmsAlert] = useState(null);
+
+  const triggerSmsAlert = (phone, otp) => {
+    setSmsAlert({ phone, otp });
+    // Auto-dismiss after 10s
+    setTimeout(() => {
+      setSmsAlert(null);
+    }, 10000);
+  };
+
+  const handleLoginSuccess = (userData) => {
+    if (!userData) {
+      localStorage.removeItem('userToken');
+      localStorage.removeItem('userUsername');
+      localStorage.removeItem('userRole');
+      localStorage.removeItem('adminToken');
+      localStorage.removeItem('adminUsername');
+      setUser(null);
+    } else {
+      localStorage.setItem('userToken', userData.token);
+      localStorage.setItem('userUsername', userData.username);
+      localStorage.setItem('userRole', userData.role);
+      if (userData.role === 'admin') {
+        localStorage.setItem('adminToken', userData.token);
+        localStorage.setItem('adminUsername', userData.username);
+      }
+      setUser(userData);
+    }
+  };
+
+  const handleLogout = () => {
+    handleLoginSuccess(null);
+    setView('store');
+  };
   
   // Data State loaded from APIs
   const [products, setProducts] = useState([]);
@@ -23,6 +68,7 @@ export default function App() {
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
 
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
 
   // 1. Fetch Categories dynamically on Mount
   useEffect(() => {
@@ -115,7 +161,7 @@ export default function App() {
   const totalCartCount = cartItems.reduce((acc, item) => acc + item.quantity, 0);
 
   return (
-    <div class="min-h-screen bg-brand-grey flex flex-col justify-between">
+    <div className="min-h-screen bg-brand-grey flex flex-col justify-between">
       
       <div>
         {/* Navigation Bar */}
@@ -126,6 +172,9 @@ export default function App() {
           openCart={() => setIsCartOpen(true)}
           currentView={view}
           setView={setView}
+          user={user}
+          onLogout={handleLogout}
+          openLoginModal={() => setIsLoginModalOpen(true)}
         />
 
         {/* View Router */}
@@ -135,7 +184,7 @@ export default function App() {
             <Hero onExploreCategory={handleExploreCategory} />
 
             {/* Catalog Container Anchor */}
-            <div id="store-catalog" class="scroll-mt-24">
+            <div id="store-catalog" className="scroll-mt-24">
               <Catalog
                 products={products}
                 categories={categories}
@@ -150,24 +199,32 @@ export default function App() {
           </div>
         ) : (
           /* Admin View Dashboard */
-          <Admin />
+          <Admin onLoginSuccess={handleLoginSuccess} triggerSmsAlert={triggerSmsAlert} />
         )}
       </div>
 
       {/* Footer */}
-      <footer class="bg-brand-blue-dark text-slate-400 py-12 mt-16 px-4 md:px-8 border-t border-brand-blue/20">
-        <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
-          <div class="flex items-center gap-2">
-            <span class="text-xl">👑</span>
-            <span class="font-serif-brand text-xl font-bold tracking-widest text-white">UDIKSHA</span>
-            <span class="text-[9px] font-bold text-brand-orange border border-brand-orange/30 px-1.5 py-0.5 rounded-full uppercase">
-              Atelier
-            </span>
+      <footer className="bg-brand-blue-dark text-slate-400 py-12 mt-16 px-4 md:px-8 border-t border-brand-blue/20">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+          <div className="flex flex-col gap-2.5">
+            <div className="flex items-center gap-2">
+              <span className="text-xl">👑</span>
+              <span className="font-serif-brand text-2xl font-extrabold tracking-widest text-white">
+                उदीक्षा <span className="text-xs font-sans font-medium text-slate-400 tracking-normal ml-0.5">Garment</span>
+              </span>
+              <span className="text-[9px] font-bold text-brand-orange border border-brand-orange/30 px-1.5 py-0.5 rounded-full uppercase">
+                Atelier
+              </span>
+            </div>
+            <div className="text-xs text-slate-400 space-y-1.5 font-sans">
+              <p>💼 <strong>Shop Owner:</strong> Shivam Mishra (<a href="tel:+919519764098" className="text-brand-orange hover:underline font-bold">+91 9519764098</a>)</p>
+              <p>💻 <strong>Developer:</strong> Harsh Mishra (<a href="tel:+918114247911" className="text-brand-orange hover:underline font-bold">+91 8114247911</a>)</p>
+            </div>
           </div>
 
-          <div class="text-center md:text-right text-xs leading-normal">
-            <p>© 2026 UDIKSHA Luxury Fashion Store. Crafted with pure Banarasi Silk & Royal Accents.</p>
-            <p class="mt-1 text-slate-500">Built using React 18, Node.js, Express & SQLite. Secure transaction simulation.</p>
+          <div className="text-left md:text-right text-xs leading-normal">
+            <p>© 2026 उदीक्षा Garment Luxury Fashion Store. Crafted with pure Banarasi Silk & Royal Accents.</p>
+            <p className="mt-1 text-slate-500">Built using React 18, Node.js, Express & PostgreSQL. Secure OTP system.</p>
           </div>
         </div>
       </footer>
@@ -191,8 +248,41 @@ export default function App() {
         onClose={() => setIsCheckoutOpen(false)}
         cartItems={cartItems}
         onClearCart={handleClearCart}
+        user={user}
+        triggerSmsAlert={triggerSmsAlert}
       />
+
+      {/* Unified Login modal */}
+      <LoginModal
+        isOpen={isLoginModalOpen}
+        onClose={() => setIsLoginModalOpen(false)}
+        onLoginSuccess={handleLoginSuccess}
+        triggerSmsAlert={triggerSmsAlert}
+      />
+
+      {/* Dynamic SMS Notification Banner */}
+      {smsAlert && (
+        <div className="fixed top-24 right-4 z-[999] max-w-sm w-full bg-slate-900/95 text-white rounded-2xl shadow-2xl p-4 border border-brand-orange/40 animate-slide-in-right transition-all">
+          <div className="flex items-start gap-3">
+            <div className="p-2 bg-brand-orange text-white rounded-xl">
+              💬
+            </div>
+            <div className="flex-1">
+              <div className="flex justify-between items-center">
+                <span className="text-[10px] font-bold text-brand-orange uppercase tracking-wider">SMS Gateway Simulator</span>
+                <button onClick={() => setSmsAlert(null)} className="text-slate-400 hover:text-white text-xs">✕</button>
+              </div>
+              <p className="text-xs font-bold mt-1 text-slate-100">Message to: {smsAlert.phone}</p>
+              <div className="bg-slate-800/80 border border-slate-700/60 p-3 rounded-xl mt-2 text-xs font-medium text-slate-200 leading-relaxed font-sans">
+                👑 *उदीक्षा Garment* 👑<br/>
+                Your security OTP for verification is <strong className="text-brand-orange text-sm tracking-wider">{smsAlert.otp}</strong>. Valid for 5 minutes.
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
+
 }

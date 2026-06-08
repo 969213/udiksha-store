@@ -165,11 +165,31 @@ export default function Cart({
               {/* Checkout Button */}
               <button
                 onClick={onCheckout}
-                class="w-full flex items-center justify-center gap-2 py-4 bg-brand-blue hover:bg-brand-blue-dark text-white rounded-full font-bold text-xs uppercase tracking-wider transition-all duration-300 shadow-lg shadow-brand-blue/20 hover:scale-[1.02] active:scale-95"
+                className="w-full flex items-center justify-center gap-2 py-4 bg-brand-blue hover:bg-brand-blue-dark text-white rounded-full font-bold text-xs uppercase tracking-wider transition-all duration-300 shadow-lg shadow-brand-blue/20 hover:scale-[1.02] active:scale-95"
               >
-                <ShieldCheck class="w-4.5 h-4.5 text-brand-orange" />
+                <ShieldCheck className="w-4.5 h-4.5 text-brand-orange" />
                 Proceed to Checkout
               </button>
+
+              {/* WhatsApp Quick Buy Button */}
+              <button
+                onClick={() => {
+                  const itemsList = cartItems.map(item => `- ${item.product.title} x${item.quantity} (${item.size} / ${item.color.name})`).join('\n');
+                  const waMessage = `👑 *उदीक्षा Garment - Shopping Bag Inquiry* 👑\n\n` + 
+                    `Hello! I am visiting your store and interested in buying the following items:\n\n` +
+                    `${itemsList}\n\n` +
+                    `💰 *Total Estimated Value:* ₹${Math.round(total).toLocaleString()}\n\n` +
+                    `Please let me know if they are available for order!`;
+                  
+                  const encodedMsg = encodeURIComponent(waMessage);
+                  const waUrl = `https://api.whatsapp.com/send?phone=918114247911&text=${encodedMsg}`;
+                  window.open(waUrl, '_blank');
+                }}
+                className="w-full mt-3 flex items-center justify-center gap-2 py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full font-bold text-xs uppercase tracking-wider transition-all duration-300 shadow-lg shadow-emerald-600/20 hover:scale-[1.02] active:scale-95 border border-emerald-500"
+              >
+                <span className="text-sm font-bold">💬 Order via WhatsApp (Free)</span>
+              </button>
+
 
             </div>
           )}
