@@ -5,7 +5,7 @@ const fs = require('fs');
 const bcrypt = require('bcryptjs');
 
 // Check if we are running in cloud/production with PostgreSQL database
-const isPostgres = process.env.DATABASE_URL && (
+let isPostgres = process.env.DATABASE_URL && (
   process.env.DATABASE_URL.startsWith('postgres://') || 
   process.env.DATABASE_URL.startsWith('postgresql://')
 );
@@ -13,13 +13,14 @@ const isPostgres = process.env.DATABASE_URL && (
 let db = null;
 let pgPool = null;
 
-if (isPostgres) {
-  console.log('Database Engine: PostgreSQL (Cloud Host)');
+const initializePg = () => {
   pgPool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: { rejectUnauthorized: false } // Required for hosting platforms like Neon/Render/Supabase
   });
-} else {
+};
+
+const initializeSqlite = () => {
   console.log('Database Engine: SQLite (Local Host)');
   // Ensure db directory exists
   const dbDir = path.join(__dirname, '../data');
@@ -28,6 +29,13 @@ if (isPostgres) {
   }
   const dbPath = path.join(dbDir, 'store.db');
   db = new sqlite3.Database(dbPath);
+};
+
+if (isPostgres) {
+  console.log('Database Engine: PostgreSQL (Cloud Host)');
+  initializePg();
+} else {
+  initializeSqlite();
 }
 
 // Convert SQLite '?' placeholders to PostgreSQL '$1', '$2', ... placeholders
@@ -97,6 +105,17 @@ const dbGet = (sql, params = []) => {
 // Initialize Tables and seed them with initial premium luxury clothing data
 const initDb = async () => {
   try {
+    if (isPostgres) {
+      try {
+        await pgPool.query('SELECT 1');
+        console.log('PostgreSQL connection test successful.');
+      } catch (pgError) {
+        console.error('PostgreSQL connection failed. Falling back to SQLite:', pgError.message);
+        isPostgres = false;
+        initializeSqlite();
+      }
+    }
+
     // 1. Products Table
     await dbRun(`
       CREATE TABLE IF NOT EXISTS products (

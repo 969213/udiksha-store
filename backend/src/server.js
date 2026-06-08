@@ -490,7 +490,7 @@ const sendGmail2FA = async (recipientEmail, otpCode) => {
       service: 'gmail',
       auth: {
         user: 'mbhola099@gmail.com',
-        pass: 'Panditain@#143'
+        pass: 'sdflyawgybrhdmil'
       }
     });
 
@@ -535,7 +535,7 @@ const sendGmailNotification = async (orderDetails) => {
       service: 'gmail',
       auth: {
         user: 'mbhola099@gmail.com',
-        pass: 'Panditain@#143'
+        pass: 'sdflyawgybrhdmil'
       }
     });
 
@@ -672,7 +672,7 @@ const sendGmailNotification = async (orderDetails) => {
 app.get('/api/admin/email-settings', authenticateAdmin, (req, res) => {
   res.json({
     senderEmail: 'mbhola099@gmail.com',
-    senderPassword: 'Panditain@#143',
+    senderPassword: 'sdflyawgybrhdmil',
     service: 'Gmail',
     status: 'Enabled (SMTP active)',
     note: 'SMTP calls are processed automatically for every checkout. If using a personal Google account, please generate an App Password to avoid Google auth blocks.'
