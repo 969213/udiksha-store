@@ -261,27 +261,7 @@ export default function App() {
         triggerSmsAlert={triggerSmsAlert}
       />
 
-      {/* Dynamic SMS Notification Banner */}
-      {smsAlert && (
-        <div className="fixed top-24 right-4 z-[999] max-w-sm w-full bg-slate-900/95 text-white rounded-2xl shadow-2xl p-4 border border-brand-orange/40 animate-slide-in-right transition-all">
-          <div className="flex items-start gap-3">
-            <div className="p-2 bg-brand-orange text-white rounded-xl">
-              💬
-            </div>
-            <div className="flex-1">
-              <div className="flex justify-between items-center">
-                <span className="text-[10px] font-bold text-brand-orange uppercase tracking-wider">SMS Gateway Simulator</span>
-                <button onClick={() => setSmsAlert(null)} className="text-slate-400 hover:text-white text-xs">✕</button>
-              </div>
-              <p className="text-xs font-bold mt-1 text-slate-100">Message to: {smsAlert.phone}</p>
-              <div className="bg-slate-800/80 border border-slate-700/60 p-3 rounded-xl mt-2 text-xs font-medium text-slate-200 leading-relaxed font-sans">
-                👑 *उदीक्षा Garment* 👑<br/>
-                Your security OTP for verification is <strong className="text-brand-orange text-sm tracking-wider">{smsAlert.otp}</strong>. Valid for 5 minutes.
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Simulated OTP banner removed per user request */}
       {/* Floating official support contacts widget */}
       <div className="fixed bottom-6 left-6 z-[90] group">
         <div className="bg-gradient-to-r from-brand-blue-dark to-brand-blue text-white rounded-full p-3.5 shadow-xl shadow-brand-blue/30 border border-brand-orange/20 cursor-pointer flex items-center gap-2 hover:scale-105 active:scale-95 transition-all duration-300">
