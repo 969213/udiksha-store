@@ -282,8 +282,31 @@ export default function App() {
           </div>
         </div>
       )}
+      {/* Floating official support contacts widget */}
+      <div className="fixed bottom-6 left-6 z-[90] group">
+        <div className="bg-gradient-to-r from-brand-blue-dark to-brand-blue text-white rounded-full p-3.5 shadow-xl shadow-brand-blue/30 border border-brand-orange/20 cursor-pointer flex items-center gap-2 hover:scale-105 active:scale-95 transition-all duration-300">
+          <span className="text-sm">📞</span>
+          <span className="text-xs font-bold font-sans tracking-wide pr-1">Atelier Contacts</span>
+        </div>
+        {/* Hover details card */}
+        <div className="absolute bottom-16 left-0 w-64 bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl p-4 border border-slate-200/80 flex flex-col gap-2.5 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-300 scale-95 origin-bottom-left group-hover:scale-100">
+          <div className="pb-2 border-b border-slate-100 flex items-center gap-1.5">
+            <span className="text-brand-orange text-xs">👑</span>
+            <span className="text-[10px] font-extrabold text-brand-blue-dark uppercase tracking-wider font-sans">Official Support</span>
+          </div>
+          <div className="text-xs text-slate-600 space-y-2.5 font-sans">
+            <div>
+              <span className="block font-bold text-slate-800">Shivam Mishra (Owner)</span>
+              <a href="tel:+919519764098" className="text-brand-orange font-bold hover:underline">+91 9519764098</a>
+            </div>
+            <div>
+              <span className="block font-bold text-slate-800">Harsh Mishra (Developer)</span>
+              <a href="tel:+918114247911" className="text-brand-orange font-bold hover:underline">+91 8114247911</a>
+            </div>
+          </div>
+        </div>
+      </div>
 
     </div>
   );
-
 }

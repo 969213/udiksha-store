@@ -15,17 +15,12 @@ export default function Navbar({
   return (
     <div className="flex flex-col w-full">
       {/* Premium Announcement / Contact Bar */}
-      <div className="bg-gradient-to-r from-brand-blue-dark via-brand-blue to-brand-blue-dark text-white text-[10px] md:text-xs py-2.5 px-4 md:px-8 flex flex-col md:flex-row justify-between items-center gap-2 border-b border-brand-orange/20 shadow-sm z-50">
-        <div className="flex items-center gap-1.5">
+      <div className="bg-gradient-to-r from-brand-blue-dark via-brand-blue to-brand-blue-dark text-slate-200 text-[9px] md:text-xs py-2 px-4 md:px-8 flex justify-center items-center gap-2 border-b border-brand-orange/20 shadow-sm z-50">
+        <div className="flex items-center gap-1.5 justify-center text-center">
           <span className="text-brand-orange animate-bounce">👑</span>
-          <span className="font-serif-brand font-bold tracking-wider text-slate-100">
-            उदीक्षा Garment Atelier - Luxury Heritage Store
+          <span className="font-serif-brand font-bold tracking-wider text-slate-100 uppercase text-[9px] md:text-[10px]">
+            उदीक्षा Garment Atelier - Luxury Heritage Store & Royal Apparel | Experience Royale Collection
           </span>
-        </div>
-        <div className="flex flex-wrap justify-center items-center gap-x-4 gap-y-1.5 text-slate-200 font-medium">
-          <span>💼 <strong>Owner:</strong> Shivam Mishra (<a href="tel:+919519764098" className="text-brand-orange hover:underline font-bold">+91 9519764098</a>)</span>
-          <span className="hidden md:inline text-brand-orange/30">|</span>
-          <span>💻 <strong>Developer:</strong> Harsh Mishra (<a href="tel:+918114247911" className="text-brand-orange hover:underline font-bold">+91 8114247911</a>)</span>
         </div>
       </div>
 
