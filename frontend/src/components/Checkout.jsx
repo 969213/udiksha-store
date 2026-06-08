@@ -20,6 +20,7 @@ export default function Checkout({ isOpen, onClose, cartItems, onClearCart, user
   });
   const [otpCode, setOtpCode] = useState('');
   const [otpError, setOtpError] = useState('');
+  const [sentOtpCode, setSentOtpCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [invoice, setInvoice] = useState(null);
 
@@ -81,8 +82,11 @@ export default function Checkout({ isOpen, onClose, cartItems, onClearCart, user
       }
       
       // Trigger the mock SMS notification
-      if (data.otp && triggerSmsAlert) {
-        triggerSmsAlert(addressForm.phone, data.otp);
+      if (data.otp) {
+        setSentOtpCode(data.otp);
+        if (triggerSmsAlert) {
+          triggerSmsAlert(addressForm.phone, data.otp);
+        }
       }
       setStep(3);
     } catch (err) {
@@ -457,7 +461,7 @@ export default function Checkout({ isOpen, onClose, cartItems, onClearCart, user
                 <p class="text-xs text-slate-400 max-w-sm leading-relaxed">
                   We have simulated a crypt OTP session token dispatch to your phone. 
                   <br />
-                  <span class="text-brand-orange font-bold">Use verification OTP: 1234</span>
+                  <span class="text-slate-500 font-bold">Please enter the verification code sent to your phone.</span>
                 </p>
               </div>
 

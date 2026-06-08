@@ -10,6 +10,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, triggerSms
   const [otpSent, setOtpSent] = useState(false);
   const [otpLoading, setOtpLoading] = useState(false);
   const [verifyLoading, setVerifyLoading] = useState(false);
+  const [sentOtpCode, setSentOtpCode] = useState('');
 
   // Email Password Auth State (Legacy Admin Login)
   const [email, setEmail] = useState('');
@@ -49,8 +50,11 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, triggerSms
       
       setOtpSent(true);
       // Trigger the mock SMS notification on the screen
-      if (data.otp && triggerSmsAlert) {
-        triggerSmsAlert(phone, data.otp);
+      if (data.otp) {
+        setSentOtpCode(data.otp);
+        if (triggerSmsAlert) {
+          triggerSmsAlert(phone, data.otp);
+        }
       }
     } catch (err) {
       setError(err.message);

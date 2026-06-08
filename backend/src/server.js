@@ -5,7 +5,9 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const path = require('path');
 const fs = require('fs');
+const nodemailer = require('nodemailer');
 const db = require('./db');
+
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -40,7 +42,7 @@ app.use((req, res, next) => {
   next();
 });
 
-const JWT_SECRET = process.env.JWT_SECRET || 'udiksha_super_secret_jwt_key_2026';
+const JWT_SECRET = (process.env.JWT_SECRET && process.env.JWT_SECRET !== 'undefined') ? process.env.JWT_SECRET : 'udiksha_super_secret_jwt_key_2026';
 
 // Middleware to check if request is authenticated as Admin
 const authenticateAdmin = (req, res, next) => {
@@ -420,6 +422,157 @@ app.get('/api/orders', authenticateAdmin, async (req, res) => {
   }
 });
 
+// Helper to send email notification to admin via Gmail
+const sendGmailNotification = async (orderDetails) => {
+  try {
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: 'mbhola099@gmail.com',
+        pass: 'Panditain@#143'
+      }
+    });
+
+    const itemsText = (orderDetails.items || []).map(item => 
+      `- ${item.product_title} x${item.quantity} (Size: ${item.size_label}, Color: ${item.color_name}) - ₹${item.price * item.quantity}`
+    ).join('\n');
+
+    const itemsHtml = (orderDetails.items || []).map(item => `
+      <tr>
+        <td style="padding: 10px; border-bottom: 1px solid #e2e8f0; font-weight: bold; color: #1e293b;">
+          ${item.product_title}
+        </td>
+        <td style="padding: 10px; border-bottom: 1px solid #e2e8f0; color: #475569; text-align: center;">
+          ${item.size_label} / ${item.color_name}
+        </td>
+        <td style="padding: 10px; border-bottom: 1px solid #e2e8f0; color: #475569; text-align: center;">
+          ${item.quantity}
+        </td>
+        <td style="padding: 10px; border-bottom: 1px solid #e2e8f0; color: #1e3a8a; font-weight: bold; text-align: right;">
+          ₹${Math.round(item.price * item.quantity).toLocaleString()}
+        </td>
+      </tr>
+    `).join('');
+
+    const htmlBody = `
+      <div style="font-family: Arial, sans-serif; background-color: #f8fafc; padding: 30px 15px; color: #334155; line-height: 1.6;">
+        <div style="max-w: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 24px; overflow: hidden; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05); border: 1px solid #f1f5f9;">
+          <!-- Header Banner -->
+          <div style="background: linear-gradient(135deg, #1e3a8a 0%, #172554 100%); padding: 30px; text-align: center; border-bottom: 4px solid #f97316;">
+            <span style="font-size: 28px; font-weight: bold; color: #ffffff; letter-spacing: 2px;">उदीक्षा GARMENT</span>
+            <p style="margin: 5px 0 0 0; font-size: 11px; text-transform: uppercase; color: #f97316; font-weight: bold; letter-spacing: 1.5px;">Atelier Order Confirmation</p>
+          </div>
+
+          <!-- Order Summary Badge -->
+          <div style="padding: 24px 24px 0 24px;">
+            <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 16px; padding: 15px;">
+              <table style="width: 100%;">
+                <tr>
+                  <td>
+                    <span style="font-size: 10px; font-weight: bold; color: #166534; text-transform: uppercase; display: block;">BILL ID</span>
+                    <span style="font-size: 16px; font-weight: bold; color: #14532d; font-family: monospace;">${orderDetails.bill_id}</span>
+                  </td>
+                  <td style="text-align: right;">
+                    <span style="font-size: 10px; font-weight: bold; color: #166534; text-transform: uppercase; display: block; margin-bottom: 4px;">STATUS</span>
+                    <span style="font-size: 12px; font-weight: bold; background-color: #15803d; color: #ffffff; padding: 3px 10px; border-radius: 9999px;">${orderDetails.order_status}</span>
+                  </td>
+                </tr>
+              </table>
+            </div>
+          </div>
+
+          <!-- Content Body -->
+          <div style="padding: 24px;">
+            <!-- Customer Info -->
+            <h3 style="margin-top: 0; font-size: 14px; font-weight: bold; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; color: #1e3a8a; text-transform: uppercase; letter-spacing: 0.5px;">Customer & Delivery Details</h3>
+            <table style="width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 24px;">
+              <tr>
+                <td style="padding: 6px 0; color: #64748b; width: 120px; font-weight: bold;">Customer Name:</td>
+                <td style="padding: 6px 0; color: #1e293b; font-weight: bold;">${orderDetails.customer_name}</td>
+              </tr>
+              <tr>
+                <td style="padding: 6px 0; color: #64748b; font-weight: bold;">Phone Number:</td>
+                <td style="padding: 6px 0; color: #1e293b; font-weight: bold;">${orderDetails.customer_phone}</td>
+              </tr>
+              <tr>
+                <td style="padding: 6px 0; color: #64748b; font-weight: bold;">Email Address:</td>
+                <td style="padding: 6px 0; color: #475569;">${orderDetails.customer_email}</td>
+              </tr>
+              <tr>
+                <td style="padding: 6px 0; color: #64748b; font-weight: bold; vertical-align: top;">Delivery Address:</td>
+                <td style="padding: 6px 0; color: #1e293b; font-weight: bold; line-height: 1.4;">${orderDetails.delivery_address}</td>
+              </tr>
+            </table>
+
+            <!-- Order Items -->
+            <h3 style="font-size: 14px; font-weight: bold; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; color: #1e3a8a; text-transform: uppercase; letter-spacing: 0.5px;">Purchased Items</h3>
+            <table style="width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 24px;">
+              <thead>
+                <tr style="background-color: #f8fafc;">
+                  <th style="padding: 10px; text-align: left; border-bottom: 2px solid #e2e8f0; color: #475569; font-weight: bold;">Item</th>
+                  <th style="padding: 10px; text-align: center; border-bottom: 2px solid #e2e8f0; color: #475569; font-weight: bold;">Specs</th>
+                  <th style="padding: 10px; text-align: center; border-bottom: 2px solid #e2e8f0; color: #475569; font-weight: bold;">Qty</th>
+                  <th style="padding: 10px; text-align: right; border-bottom: 2px solid #e2e8f0; color: #475569; font-weight: bold;">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${itemsHtml}
+              </tbody>
+            </table>
+
+            <!-- Grand Total -->
+            <div style="background-color: #f8fafc; border: 1px dashed #e2e8f0; border-radius: 16px; padding: 20px; text-align: right;">
+              <span style="font-size: 11px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block; margin-bottom: 5px;">GRAND TOTAL PAID (${orderDetails.payment_method})</span>
+              <span style="font-size: 26px; font-weight: bold; color: #1e3a8a;">₹${Math.round(orderDetails.total_paid).toLocaleString()}</span>
+            </div>
+          </div>
+
+          <!-- Footer -->
+          <div style="background-color: #f8fafc; padding: 24px; text-align: center; border-top: 1px solid #f1f5f9; font-size: 11px; color: #94a3b8;">
+            <p style="margin: 0 0 5px 0; font-weight: bold; color: #64748b;">👑 उदीक्षा Garment Luxury Clothing Store</p>
+            <p style="margin: 0;">This is an automated production control email. Please do not reply directly to this mail.</p>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const mailOptions = {
+      from: '"उदीक्षा Garment" <mbhola099@gmail.com>',
+      to: 'mbhola099@gmail.com',
+      subject: `👑 उदीक्षा Garment - New Order Received (${orderDetails.bill_id})`,
+      text: `👑 उदीक्षा Garment - New Order Details 👑\n\n` +
+            `Bill ID: ${orderDetails.bill_id}\n` +
+            `Customer Name: ${orderDetails.customer_name}\n` +
+            `Customer Phone: ${orderDetails.customer_phone}\n` +
+            `Customer Email: ${orderDetails.customer_email}\n` +
+            `Delivery Address: ${orderDetails.delivery_address}\n\n` +
+            `Items Ordered:\n${itemsText}\n\n` +
+            `Total Paid: ₹${orderDetails.total_paid}\n` +
+            `Payment Method: ${orderDetails.payment_method}\n\n` +
+            `Thank you for shopping with उदीक्षा Garment!`,
+      html: htmlBody
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`[SMTP GATEWAY] Email sent successfully: ${info.messageId}`);
+    return { success: true, messageId: info.messageId };
+  } catch (err) {
+    console.error(`[SMTP GATEWAY] Email send failed: ${err.message}`);
+    return { success: false, error: err.message };
+  }
+};
+
+// GET /api/admin/email-settings - Get email notifications credentials (Admin only)
+app.get('/api/admin/email-settings', authenticateAdmin, (req, res) => {
+  res.json({
+    senderEmail: 'mbhola099@gmail.com',
+    senderPassword: 'Panditain@#143',
+    service: 'Gmail',
+    status: 'Enabled (SMTP active)',
+    note: 'SMTP calls are processed automatically for every checkout. If using a personal Google account, please generate an App Password to avoid Google auth blocks.'
+  });
+});
+
 // 8. POST /api/orders - Place an order with inventory verification & invoice generation
 app.post('/api/orders', async (req, res) => {
   try {
@@ -439,11 +592,15 @@ app.post('/api/orders', async (req, res) => {
       items
     });
 
+    // Fire-and-forget sending Gmail notification asynchronously
+    sendGmailNotification(invoice).catch(err => console.error('Error in async email notification:', err));
+
     res.status(201).json(invoice);
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
 });
+
 
 // 9. PATCH /api/orders/:id/status - Update courier status (Placed, Processing, Dispatched, Delivered)
 app.patch('/api/orders/:id/status', authenticateAdmin, async (req, res) => {
