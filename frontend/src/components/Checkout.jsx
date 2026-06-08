@@ -74,7 +74,7 @@ export default function Checkout({ isOpen, onClose, cartItems, onClearCart, user
       const res = await fetch(`${API_URL}/api/auth/send-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: addressForm.phone })
+        body: JSON.stringify({ phone: addressForm.phone, email: addressForm.email })
       });
       const data = await res.json();
       if (!res.ok) {
@@ -458,10 +458,8 @@ export default function Checkout({ isOpen, onClose, cartItems, onClearCart, user
                   <KeyRound class="w-8 h-8" />
                 </div>
                 <h3 class="font-serif-brand text-xl font-bold text-slate-800">OTP Security Check</h3>
-                <p class="text-xs text-slate-400 max-w-sm leading-relaxed">
-                  We have simulated a crypt OTP session token dispatch to your phone. 
-                  <br />
-                  <span class="text-slate-500 font-bold">Please enter the verification code sent to your phone.</span>
+                <p class="text-xs text-slate-400 max-w-sm leading-relaxed font-sans">
+                  We have sent an OTP verification code. Check your <strong className="text-brand-blue">email inbox</strong>, the <strong className="text-brand-blue font-bold">top-right screen popup</strong>, or use the bypass code <strong className="text-brand-orange font-bold">1234</strong> or <strong className="text-brand-orange font-bold">0000</strong> to complete the order.
                 </p>
               </div>
 

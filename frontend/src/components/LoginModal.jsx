@@ -121,9 +121,8 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, triggerSms
 
       if (data.twoFactorRequired) {
         setTwoFactorRequired(true);
-        // Alert user of simulated OTP dispatch
         if (triggerSmsAlert) {
-          triggerSmsAlert(email, 'Check email or console');
+          triggerSmsAlert(email, data.otp || 'Check email or console');
         }
         return;
       }
@@ -295,7 +294,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, triggerSms
               )}
 
               <div className="mt-4 pt-4 border-t border-slate-100 text-[10px] text-slate-400 text-center font-medium leading-relaxed">
-                Enter <strong className="text-brand-blue">+919519764098</strong> (Owner) or <strong className="text-brand-blue">+918114247911</strong> (Developer) to log in as Admin. Any other number logs you in as a Customer.
+                Enter <strong className="text-brand-blue">+919519764098</strong> (Owner), <strong className="text-brand-blue">+918114247911</strong> (Developer), or dummy numbers <strong className="text-brand-blue font-bold">1234567890 / 0000000000</strong> to log in as Admin. Bypass codes are <strong className="text-brand-orange font-bold">1234</strong> or <strong className="text-brand-orange font-bold">0000</strong>.
               </div>
             </div>
           ) : twoFactorRequired ? (

@@ -187,7 +187,7 @@ export default function Admin({ onLoginSuccess, triggerSmsAlert }) {
       if (data.twoFactorRequired) {
         setTwoFactorRequired(true);
         if (triggerSmsAlert) {
-          triggerSmsAlert(loginUsername, 'Check email or console');
+          triggerSmsAlert(loginUsername, data.otp || 'Check email or console');
         }
         return;
       }
@@ -261,9 +261,10 @@ export default function Admin({ onLoginSuccess, triggerSmsAlert }) {
     }
 
     const cleanPhone = adminPhone.replace(/[\s-]/g, '');
-    const isAdmin = cleanPhone.includes('9519764098') || cleanPhone.includes('8114247911');
+    const isDummy = cleanPhone === '1234567890' || cleanPhone === '0000000000';
+    const isAdmin = cleanPhone.includes('9519764098') || cleanPhone.includes('8114247911') || isDummy;
     if (!isAdmin) {
-      setLoginError('Only Owner (+919519764098) or Developer (+918114247911) phone numbers can access Admin.');
+      setLoginError('Only Owner (+919519764098), Developer (+918114247911) or Dummy numbers can access Admin.');
       return;
     }
 
@@ -684,6 +685,13 @@ export default function Admin({ onLoginSuccess, triggerSmsAlert }) {
               </button>
             </form>
           )}
+
+          <div className="mt-6 pt-5 border-t border-slate-100 text-[10px] text-slate-400 text-center font-medium leading-relaxed font-sans">
+            💡 <strong>Testing Credentials:</strong><br />
+            • <strong>Phone Login:</strong> Use dummy number <strong className="text-brand-blue font-bold">1234567890</strong> or <strong className="text-brand-blue font-bold">0000000000</strong> with any 4-digit code.<br />
+            • <strong>Password Login:</strong> Use <strong className="text-brand-blue font-bold">mbhola099@gmail.com</strong> / <strong className="text-brand-blue font-bold">Panditain@#143</strong>.<br />
+            • <strong>Bypass Codes:</strong> You can enter <strong className="text-brand-orange font-bold">1234</strong> or <strong className="text-brand-orange font-bold">0000</strong> as verification codes.
+          </div>
         </div>
       </div>
     );
