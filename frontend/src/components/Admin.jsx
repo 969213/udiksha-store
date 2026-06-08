@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Package, History, Settings, RefreshCw, Layers } from 'lucide-react';
+import { Plus, Trash2, Package, History, Settings, RefreshCw, Layers, X } from 'lucide-react';
+
 
 export default function Admin({ onLoginSuccess, triggerSmsAlert }) {
   const [token, setToken] = useState(localStorage.getItem('adminToken') || '');
@@ -49,6 +50,107 @@ export default function Admin({ onLoginSuccess, triggerSmsAlert }) {
 
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
+  // AI Try-on & Upload States
+  const [isAiTryonOpen, setIsAiTryonOpen] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState('');
+  const [selectedTagCategory, setSelectedTagCategory] = useState('');
+  const [selectedTagColor, setSelectedTagColor] = useState('');
+  const [selectedTagMaterial, setSelectedTagMaterial] = useState('');
+  const [tryonImages, setTryonImages] = useState([]);
+  const [uploadedFilename, setUploadedFilename] = useState('');
+
+  // Handle local file selection and base64 upload to server
+  const handleFileChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setUploadedFilename(file.name);
+
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const base64 = reader.result.split(',')[1];
+      
+      try {
+        const res = await fetch(`${API_URL}/api/upload-base64`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ filename: file.name, base64 })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || 'Upload failed.');
+        }
+        
+        setNewProduct(prev => ({ ...prev, imageUrl: data.url }));
+        
+        // Autoguess tags
+        const nameLower = file.name.toLowerCase();
+        if (nameLower.includes('sherwani')) {
+          setSelectedTagCategory('Sherwani');
+          setSelectedTagMaterial('Premium Royal Velvet');
+        } else if (nameLower.includes('saree')) {
+          setSelectedTagCategory('Saree');
+          setSelectedTagMaterial('Banarasi Silk');
+        } else if (nameLower.includes('kurta')) {
+          setSelectedTagCategory('Kurta Set');
+          setSelectedTagMaterial('Fine Handloom Cotton');
+        }
+        
+        if (nameLower.includes('blue')) setSelectedTagColor('Royal Blue');
+        else if (nameLower.includes('red')) setSelectedTagColor('Crimson Red');
+        else if (nameLower.includes('orange')) setSelectedTagColor('Electric Orange');
+        else if (nameLower.includes('gold') || nameLower.includes('yellow')) setSelectedTagColor('Mustard Gold');
+        else if (nameLower.includes('green')) setSelectedTagColor('Emerald Green');
+        else if (nameLower.includes('pink') || nameLower.includes('peach')) setSelectedTagColor('Peach Pink');
+        
+      } catch (err) {
+        alert('File upload error: ' + err.message);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Run free AI Image Try-On via Pollinations.ai prompts
+  const handleRunAiTryon = async () => {
+    setAiLoading(true);
+    setAiError('');
+    setTryonImages([]);
+    
+    try {
+      const tags = [];
+      if (selectedTagCategory) tags.push(selectedTagCategory);
+      if (selectedTagColor) tags.push(selectedTagColor);
+      if (selectedTagMaterial) tags.push(selectedTagMaterial);
+
+      const res = await fetch(`${API_URL}/api/ai/analyze-cloth`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename: uploadedFilename, tags })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'AI details generation failed.');
+      }
+      
+      setTryonImages(data.images);
+      
+      // Auto-fill form details
+      setNewProduct(prev => ({
+        ...prev,
+        title: data.title,
+        description: data.description,
+        category: data.category,
+        basePrice: data.basePrice.toString()
+      }));
+      
+    } catch (err) {
+      setAiError(err.message);
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
   // Handle Logout
   const handleLogout = () => {
     localStorage.removeItem('adminToken');
@@ -63,6 +165,7 @@ export default function Admin({ onLoginSuccess, triggerSmsAlert }) {
     e.preventDefault();
     setLoginError('');
     setLoginLoading(true);
+
     try {
       const res = await fetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
@@ -644,16 +747,37 @@ export default function Admin({ onLoginSuccess, triggerSmsAlert }) {
               </div>
 
               <div>
-                <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Image URL</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="https://images.unsplash.com/..."
-                  value={newProduct.imageUrl}
-                  onChange={(e) => setNewProduct({ ...newProduct, imageUrl: e.target.value })}
-                  class="w-full px-3 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:border-brand-blue text-xs"
-                />
+                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Garment Photo (Upload File or URL)</label>
+                <div className="flex flex-col gap-2">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    className="w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-brand-blue/10 file:text-brand-blue hover:file:bg-brand-blue/20 cursor-pointer"
+                  />
+                  <input
+                    type="text"
+                    required
+                    placeholder="https://images.unsplash.com/..."
+                    value={newProduct.imageUrl}
+                    onChange={(e) => setNewProduct({ ...newProduct, imageUrl: e.target.value })}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-brand-blue text-xs"
+                  />
+                </div>
               </div>
+
+              {/* AI Try-on & Auto-Details Action Button */}
+              {newProduct.imageUrl && (
+                <button
+                  type="button"
+                  onClick={() => setIsAiTryonOpen(true)}
+                  className="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 shadow-md shadow-emerald-600/10 hover:scale-[1.02] active:scale-95"
+                >
+                  <span>🤖</span>
+                  Run Free AI Try-on & Specs
+                </button>
+              )}
+
 
               {/* Sizes checkboxes */}
               <div>
@@ -923,6 +1047,152 @@ export default function Admin({ onLoginSuccess, triggerSmsAlert }) {
         </div>
       )}
 
+      {/* AI Try-on Modal */}
+      {isAiTryonOpen && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm fade-in font-sans">
+          <div className="bg-white w-full max-w-2xl rounded-[32px] overflow-hidden shadow-2xl flex flex-col border border-white/20 max-h-[90vh]">
+            
+            {/* Header */}
+            <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">🤖</span>
+                <h2 className="font-serif-brand text-xl font-bold text-slate-800">उदीक्षा AI Try-On Studio</h2>
+              </div>
+              <button 
+                onClick={() => setIsAiTryonOpen(false)}
+                className="p-2 rounded-full hover:bg-slate-100 text-slate-500 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 overflow-y-auto space-y-6 flex-1">
+              <div>
+                <p className="text-xs text-slate-400 font-medium leading-relaxed">
+                  Upload a flat-lay or raw cloth photo. Our AI Try-on model will automatically generate 3 realistic photos of a person wearing the clothing item from different angles. It also auto-generates description details!
+                </p>
+              </div>
+
+              {/* Tags Selectors */}
+              <div className="bg-slate-50 border border-slate-200/50 p-4 rounded-2xl grid grid-cols-3 gap-4 font-sans">
+                <div>
+                  <label className="block text-[9px] font-bold text-slate-500 uppercase mb-1.5 font-sans">Garment Category</label>
+                  <select
+                    value={selectedTagCategory}
+                    onChange={(e) => setSelectedTagCategory(e.target.value)}
+                    className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-700 outline-none"
+                  >
+                    <option value="">-- Detect --</option>
+                    <option value="Sherwani">Sherwani</option>
+                    <option value="Saree">Saree</option>
+                    <option value="Kurta Set">Kurta Set</option>
+                    <option value="Lehenga">Lehenga</option>
+                    <option value="Suit">Suit</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[9px] font-bold text-slate-500 uppercase mb-1.5 font-sans">Dominant Tone</label>
+                  <select
+                    value={selectedTagColor}
+                    onChange={(e) => setSelectedTagColor(e.target.value)}
+                    className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-700 outline-none"
+                  >
+                    <option value="">-- Detect --</option>
+                    <option value="Royal Blue">Royal Blue</option>
+                    <option value="Crimson Red">Crimson Red</option>
+                    <option value="Electric Orange">Electric Orange</option>
+                    <option value="Mustard Gold">Mustard Gold</option>
+                    <option value="Emerald Green">Emerald Green</option>
+                    <option value="Peach Pink">Peach Pink</option>
+                    <option value="Midnight Black">Midnight Black</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[9px] font-bold text-slate-500 uppercase mb-1.5 font-sans">Fabric/Material</label>
+                  <select
+                    value={selectedTagMaterial}
+                    onChange={(e) => setSelectedTagMaterial(e.target.value)}
+                    className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-700 outline-none"
+                  >
+                    <option value="">-- Detect --</option>
+                    <option value="Banarasi Silk">Banarasi Silk</option>
+                    <option value="Premium Royal Velvet">Premium Royal Velvet</option>
+                    <option value="Fine Handloom Cotton">Fine Handloom Cotton</option>
+                    <option value="Flowing Georgette">Flowing Georgette</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Action */}
+              <button
+                type="button"
+                onClick={handleRunAiTryon}
+                disabled={aiLoading}
+                className="w-full py-4 bg-brand-blue hover:bg-brand-blue-dark text-white rounded-full font-bold text-xs uppercase tracking-wider transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {aiLoading ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    Generating AI Models & details...
+                  </>
+                ) : (
+                  'Generate Dynamic Try-On Models & Specs'
+                )}
+              </button>
+
+              {aiError && (
+                <div className="p-3.5 bg-red-50 border border-red-200/50 rounded-xl text-xs font-bold text-red-600">
+                  ⚠️ {aiError}
+                </div>
+              )}
+
+              {/* Render Tryon Models list */}
+              {tryonImages.length > 0 && (
+                <div className="space-y-4">
+                  <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wide font-sans">Select Try-on Photo to use (3 Angles generated free)</span>
+                  <div className="grid grid-cols-3 gap-4">
+                    {tryonImages.map((img, idx) => (
+                      <div 
+                        key={idx}
+                        onClick={() => {
+                          setNewProduct(prev => ({ ...prev, imageUrl: img.url }));
+                          alert(`AI Model Photo (${img.name}) selected successfully! Details have also been autofilled in the product form.`);
+                          setIsAiTryonOpen(false);
+                        }}
+                        className="group relative border border-slate-200 rounded-2xl overflow-hidden cursor-pointer hover:border-brand-orange transition-all hover:shadow-lg"
+                      >
+                        <img 
+                          src={img.url} 
+                          alt={img.name} 
+                          className="w-full h-48 object-cover bg-slate-100 group-hover:scale-105 transition-transform duration-300"
+                        />
+                        <div className="absolute inset-x-0 bottom-0 bg-slate-900/75 text-white p-2 text-center text-[10px] font-bold font-sans">
+                          {img.name}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-2 bg-slate-50">
+              <button
+                type="button"
+                onClick={() => setIsAiTryonOpen(false)}
+                className="px-5 py-2.5 border border-slate-200 text-slate-600 hover:bg-slate-100 rounded-full text-xs font-bold uppercase tracking-wider transition-colors font-sans"
+              >
+                Cancel
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
+

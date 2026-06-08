@@ -3,6 +3,8 @@ const express = require('express');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const path = require('path');
+const fs = require('fs');
 const db = require('./db');
 
 const app = express();
@@ -15,7 +17,15 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-app.use(express.json());
+// Serve static uploads folder
+const uploadDir = path.join(__dirname, '../public/uploads');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+app.use('/uploads', express.static(uploadDir));
+
+app.use(express.json({ limit: '15mb' })); // Increase body size limit for base64 uploads
+
 
 // Initialize SQLite DB and seed values
 db.initDb().then(() => {
@@ -148,6 +158,107 @@ app.post('/api/auth/verify-otp', async (req, res) => {
       token,
       username,
       role
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/upload-base64 - Save uploaded file locally
+app.post('/api/upload-base64', (req, res) => {
+  try {
+    const { filename, base64 } = req.body;
+    if (!filename || !base64) {
+      return res.status(400).json({ error: 'Missing file data.' });
+    }
+    
+    const buffer = Buffer.from(base64, 'base64');
+    
+    // Create unique name to prevent collisions
+    const uniqueFilename = `${Date.now()}-${filename.replace(/[\s-]/g, '_')}`;
+    const filePath = path.join(uploadDir, uniqueFilename);
+    
+    fs.writeFileSync(filePath, buffer);
+    
+    const fileUrl = `${req.protocol}://${req.get('host')}/uploads/${uniqueFilename}`;
+    res.json({
+      success: true,
+      url: fileUrl,
+      filename: uniqueFilename
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/ai/analyze-cloth - Analyze uploaded cloth tags and generate Pollinations AI prompts + marketing details
+app.post('/api/ai/analyze-cloth', (req, res) => {
+  try {
+    const { filename, tags } = req.body;
+    
+    const nameLower = (filename || '').toLowerCase();
+    const allTags = (tags || []).map(t => t.toLowerCase());
+    
+    // Heuristic Category Detection
+    let category = 'Other';
+    if (nameLower.includes('saree') || allTags.includes('saree')) category = 'Saree';
+    else if (nameLower.includes('sherwani') || allTags.includes('sherwani')) category = 'Sherwani';
+    else if (nameLower.includes('kurta') || allTags.includes('kurta') || nameLower.includes('pathani')) category = 'Kurta Set';
+    else if (nameLower.includes('lehenga') || allTags.includes('lehenga')) category = 'Lehenga';
+    else if (nameLower.includes('suit') || allTags.includes('suit')) category = 'Suit';
+
+    // Heuristic Color Detection
+    let color = 'Royal Blue';
+    if (nameLower.includes('red') || allTags.includes('red') || allTags.includes('crimson')) color = 'Crimson Red';
+    else if (nameLower.includes('orange') || allTags.includes('orange')) color = 'Electric Orange';
+    else if (nameLower.includes('gold') || allTags.includes('gold') || allTags.includes('yellow')) color = 'Mustard Gold';
+    else if (nameLower.includes('green') || allTags.includes('green') || allTags.includes('emerald')) color = 'Emerald Green';
+    else if (nameLower.includes('pink') || allTags.includes('pink') || allTags.includes('peach')) color = 'Peach Pink';
+    else if (nameLower.includes('black') || allTags.includes('black')) color = 'Midnight Black';
+
+    let material = 'Banarasi Silk';
+    if (nameLower.includes('velvet') || allTags.includes('velvet')) material = 'Premium Royal Velvet';
+    else if (nameLower.includes('cotton') || allTags.includes('cotton')) material = 'Fine Handloom Cotton';
+    else if (nameLower.includes('georgette') || allTags.includes('georgette')) material = 'Flowing Georgette';
+
+    // Heuristic Content Generation
+    let title = `UDIKSHA Premium ${color} ${material} ${category}`;
+    let description = `Experience pure luxury. Handcrafted from ${material.toLowerCase()}, this exquisite ${category.toLowerCase()} features a beautiful ${color.toLowerCase()} shade with intricate embroidery details. Perfect for wedding ceremonies, festive celebrations, and ethnic occasions. Designed for a tailored royal fit.`;
+    let basePrice = 3999;
+    
+    if (category === 'Sherwani') {
+      basePrice = 11999;
+      description = `Adorn yourself in pure royalty. Tailored from ${material.toLowerCase()} fabric, this elegant ${color.toLowerCase()} sherwani features complex golden zari embroidery, a grand mandarin collar, and royal accents. Designed for majestic wedding celebrations and special family rituals.`;
+    } else if (category === 'Saree') {
+      basePrice = 6999;
+      description = `A masterpiece of Indian handloom weaving. This exquisite ${color.toLowerCase()} ${material.toLowerCase()} saree features a thick golden zari border and a heavily embroidered pallu. Perfect for cultural festivities and bridal trousseaus.`;
+    } else if (category === 'Kurta Set') {
+      basePrice = 2999;
+      description = `Simple, clean, and elegant. Tailored from ${material.toLowerCase()}, this ${color.toLowerCase()} kurta set is decorated with subtle threadwork around the collar. Offers maximum breathability and class for festive dinners or pooja ceremonies.`;
+    }
+
+    // Build Pollinations.ai Text-to-Image prompts
+    const cleanColor = color.toLowerCase();
+    const cleanCat = category.toLowerCase();
+    const cleanMat = material.toLowerCase();
+    
+    const frontPrompt = `high-end professional fashion catalog portrait photography of a beautiful Indian model wearing a luxury custom ${cleanColor} ${cleanMat} ${cleanCat} outfit, front view posture, studio backdrop, clean lighting, depth of field, photorealistic, 8k`;
+    const sidePrompt = `high-end professional fashion catalog portrait photography of a beautiful Indian model wearing a luxury custom ${cleanColor} ${cleanMat} ${cleanCat} outfit, side profile posture, showing garment embroidery details, studio backdrop, photorealistic, 8k`;
+    const palacePrompt = `full body editorial fashion photography of a beautiful Indian model wearing a luxury custom ${cleanColor} ${cleanMat} ${cleanCat} outfit, walking elegantly in a royal Banarasi palace courtyard background, warm sunlight, photorealistic, 8k`;
+
+    const images = [
+      { name: 'Front Portrait', url: `https://image.pollinations.ai/prompt/${encodeURIComponent(frontPrompt)}?width=600&height=800&nologo=true&seed=${Math.floor(Math.random() * 10000)}` },
+      { name: 'Side Profile', url: `https://image.pollinations.ai/prompt/${encodeURIComponent(sidePrompt)}?width=600&height=800&nologo=true&seed=${Math.floor(Math.random() * 10000)}` },
+      { name: 'Palace Courtyard Walk', url: `https://image.pollinations.ai/prompt/${encodeURIComponent(palacePrompt)}?width=600&height=800&nologo=true&seed=${Math.floor(Math.random() * 10000)}` }
+    ];
+
+    res.json({
+      success: true,
+      title,
+      description,
+      category,
+      basePrice,
+      images
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
