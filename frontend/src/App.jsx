@@ -52,9 +52,41 @@ export default function App() {
     }
   };
 
+  const navigateTo = (newView) => {
+    setView(newView);
+    const newPath = newView === 'admin' ? '/admin' : '/';
+    window.history.pushState({}, '', newPath);
+    window.dispatchEvent(new Event('pushstate-changed'));
+  };
+
+  // Simple SPA routing logic
+  useEffect(() => {
+    const handleRoute = () => {
+      const path = window.location.pathname;
+      const params = new URLSearchParams(window.location.search);
+      if (path === '/admin' || params.get('view') === 'admin') {
+        setView('admin');
+      } else {
+        setView('store');
+      }
+    };
+
+    // Check on load
+    handleRoute();
+
+    // Listen for popstate (back/forward browser buttons)
+    window.addEventListener('popstate', handleRoute);
+    window.addEventListener('pushstate-changed', handleRoute);
+
+    return () => {
+      window.removeEventListener('popstate', handleRoute);
+      window.removeEventListener('pushstate-changed', handleRoute);
+    };
+  }, []);
+
   const handleLogout = () => {
     handleLoginSuccess(null);
-    setView('store');
+    navigateTo('store');
   };
   
   // Data State loaded from APIs
@@ -172,7 +204,7 @@ export default function App() {
           cartCount={totalCartCount}
           openCart={() => setIsCartOpen(true)}
           currentView={view}
-          setView={setView}
+          setView={navigateTo}
           user={user}
           onLogout={handleLogout}
           openLoginModal={() => setIsLoginModalOpen(true)}
@@ -213,7 +245,11 @@ export default function App() {
               <span className="font-serif-brand text-2xl font-extrabold tracking-widest text-white">
                 उदीक्षा <span className="text-xs font-sans font-medium text-slate-400 tracking-normal ml-0.5">Garment</span>
               </span>
-              <span className="text-[9px] font-bold text-brand-orange border border-brand-orange/30 px-1.5 py-0.5 rounded-full uppercase">
+              <span 
+                onClick={() => navigateTo('admin')}
+                className="text-[9px] font-bold text-brand-orange border border-brand-orange/30 px-1.5 py-0.5 rounded-full uppercase cursor-pointer hover:bg-brand-orange/15 hover:text-white transition-all select-none"
+                title="Atelier Control Login"
+              >
                 Atelier
               </span>
             </div>

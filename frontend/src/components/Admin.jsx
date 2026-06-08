@@ -7,20 +7,10 @@ export default function Admin({ onLoginSuccess, triggerSmsAlert }) {
   const [adminUsername, setAdminUsername] = useState(localStorage.getItem('adminUsername') || '');
   
   // Tab selector for admin login
-  const [adminLoginTab, setAdminLoginTab] = useState('phone'); // 'phone' or 'password'
-  
   // Password login state
   const [loginUsername, setLoginUsername] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
-  
-  // Phone login state
-  const [adminPhone, setAdminPhone] = useState('');
-  const [adminOtp, setAdminOtp] = useState('');
-  const [adminOtpSent, setAdminOtpSent] = useState(false);
-  const [adminOtpLoading, setAdminOtpLoading] = useState(false);
-  const [adminOtpVerifyLoading, setAdminOtpVerifyLoading] = useState(false);
-  const [sentAdminOtp, setSentAdminOtp] = useState('');
 
   const [loginError, setLoginError] = useState('');
   const [twoFactorRequired, setTwoFactorRequired] = useState(false);
@@ -309,78 +299,7 @@ export default function Admin({ onLoginSuccess, triggerSmsAlert }) {
     }
   };
 
-  // Handle Admin OTP sending
-  const handleAdminSendOtp = async (e) => {
-    e.preventDefault();
-    setLoginError('');
 
-    if (!adminPhone || adminPhone.length < 10) {
-      setLoginError('Please enter a valid phone number.');
-      return;
-    }
-
-    const cleanPhone = adminPhone.replace(/[\s-]/g, '');
-    const isDummy = cleanPhone === '1234567890' || cleanPhone === '0000000000';
-    const isAdmin = cleanPhone.includes('9519764098') || cleanPhone.includes('8114247911') || isDummy;
-    if (!isAdmin) {
-      setLoginError('Only Owner (+919519764098), Developer (+918114247911) or Dummy numbers can access Admin.');
-      return;
-    }
-
-    setAdminOtpLoading(true);
-    try {
-      const res = await fetch(`${API_URL}/api/auth/send-otp`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: adminPhone })
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to send OTP.');
-      }
-      setAdminOtpSent(true);
-      if (data.otp) {
-        setSentAdminOtp(data.otp);
-        if (triggerSmsAlert) {
-          triggerSmsAlert(adminPhone, data.otp);
-        }
-      }
-    } catch (err) {
-      setLoginError(err.message);
-    } finally {
-      setAdminOtpLoading(false);
-    }
-  };
-
-  // Handle Admin OTP verification
-  const handleAdminPhoneLogin = async (e) => {
-    e.preventDefault();
-    setLoginError('');
-    setAdminOtpVerifyLoading(true);
-    try {
-      const res = await fetch(`${API_URL}/api/auth/verify-otp`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: adminPhone, otp: adminOtp })
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Invalid OTP.');
-      }
-      if (data.role !== 'admin') {
-        throw new Error('Unauthorized role. Contact system developer.');
-      }
-      localStorage.setItem('adminToken', data.token);
-      localStorage.setItem('adminUsername', data.username);
-      setToken(data.token);
-      setAdminUsername(data.username);
-      if (onLoginSuccess) onLoginSuccess(data);
-    } catch (err) {
-      setLoginError(err.message);
-    } finally {
-      setAdminOtpVerifyLoading(false);
-    }
-  };
 
 
   // Fetch admin stats on mount/refresh
@@ -583,98 +502,7 @@ export default function Admin({ onLoginSuccess, triggerSmsAlert }) {
             </p>
           </div>
 
-          {/* Admin Login Method Tabs */}
-          <div className="flex bg-slate-100 p-1 mb-6 rounded-xl border border-slate-200">
-            <button
-              onClick={() => { setAdminLoginTab('phone'); setLoginError(''); }}
-              className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
-                adminLoginTab === 'phone'
-                  ? 'bg-white text-brand-blue shadow-sm border border-slate-200/50'
-                  : 'text-slate-500 hover:text-brand-blue'
-              }`}
-            >
-              Phone & OTP
-            </button>
-            <button
-              onClick={() => { setAdminLoginTab('password'); setLoginError(''); }}
-              className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
-                adminLoginTab === 'password'
-                  ? 'bg-white text-brand-blue shadow-sm border border-slate-200/50'
-                  : 'text-slate-500 hover:text-brand-blue'
-              }`}
-            >
-              Password
-            </button>
-          </div>
-
-          {loginError && (
-            <div className="mb-5 p-4 bg-red-50 border border-red-200/50 rounded-2xl text-xs font-bold text-red-600 flex items-center gap-2">
-              ⚠️ {loginError}
-            </div>
-          )}
-
-          {adminLoginTab === 'phone' ? (
-            <div className="space-y-5">
-              {!adminOtpSent ? (
-                <form onSubmit={handleAdminSendOtp} className="space-y-5">
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1.5 font-sans">Owner / Developer Number</label>
-                    <input
-                      type="tel"
-                      required
-                      placeholder="e.g. 9519764098"
-                      value={adminPhone}
-                      onChange={(e) => setAdminPhone(e.target.value)}
-                      className="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:outline-none focus:border-brand-blue text-xs font-medium text-slate-700"
-                    />
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={adminOtpLoading}
-                    className="w-full py-4 bg-brand-blue hover:bg-brand-blue-dark text-white rounded-full font-bold text-xs uppercase tracking-wider transition-all shadow-lg shadow-brand-blue/10 disabled:opacity-50 flex items-center justify-center gap-2"
-                  >
-                    {adminOtpLoading ? 'Sending OTP...' : 'Send Login OTP'}
-                  </button>
-                </form>
-              ) : (
-                <form onSubmit={handleAdminPhoneLogin} className="space-y-5">
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1.5 font-sans">Enter 4-Digit OTP</label>
-                    <input
-                      type="text"
-                      required
-                      maxLength={4}
-                      placeholder="Enter OTP code"
-                      value={adminOtp}
-                      onChange={(e) => setAdminOtp(e.target.value)}
-                      className="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:outline-none focus:border-brand-blue text-xs font-medium text-slate-700 tracking-[0.5em] text-center"
-                    />
-                    <span className="block text-[10px] text-slate-400 mt-1.5 text-center font-medium font-sans">
-                      Verify the OTP sent to your simulated alert.
-                    </span>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setAdminOtpSent(false)}
-                      className="w-1/3 py-4 border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-full font-bold text-xs uppercase tracking-wider transition-all"
-                    >
-                      Back
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={adminOtpVerifyLoading}
-                      className="w-2/3 py-4 bg-brand-orange hover:bg-brand-orange-dark text-white rounded-full font-bold text-xs uppercase tracking-wider transition-all shadow-lg shadow-brand-orange/10 disabled:opacity-50"
-                    >
-                      {adminOtpVerifyLoading ? 'Verifying...' : 'Verify & Enter'}
-                    </button>
-                  </div>
-                </form>
-              )}
-            </div>
-          ) : twoFactorRequired ? (
+          {twoFactorRequired ? (
             <form onSubmit={handleVerifyTwoFactor} className="space-y-5">
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1.5 font-sans">2-Step Verification Code</label>
@@ -712,43 +540,42 @@ export default function Admin({ onLoginSuccess, triggerSmsAlert }) {
           ) : (
             <form onSubmit={handleLogin} className="space-y-5">
               <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1.5">Username</label>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1.5 font-sans">Admin Username (Email)</label>
                 <input
-                  type="text"
+                  type="email"
                   required
-                  placeholder="Enter username"
+                  placeholder="Enter admin email"
                   value={loginUsername}
                   onChange={(e) => setLoginUsername(e.target.value)}
-                  className="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:outline-none focus:border-brand-blue text-xs font-medium text-slate-700"
+                  className="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:outline-none focus:border-brand-blue text-xs font-medium text-slate-700 font-sans"
                 />
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1.5">Password</label>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1.5 font-sans">Password</label>
                 <input
                   type="password"
                   required
                   placeholder="Enter password"
                   value={loginPassword}
                   onChange={(e) => setLoginPassword(e.target.value)}
-                  className="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:outline-none focus:border-brand-blue text-xs font-medium text-slate-700"
+                  className="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:outline-none focus:border-brand-blue text-xs font-medium text-slate-700 font-sans"
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={loginLoading}
-                className="w-full py-4 bg-brand-blue hover:bg-brand-blue-dark text-white rounded-full font-bold text-xs uppercase tracking-wider transition-all shadow-lg shadow-brand-blue/10 disabled:opacity-50 flex items-center justify-center gap-2"
+                className="w-full py-4 bg-brand-blue hover:bg-brand-blue-dark text-white rounded-full font-bold text-xs uppercase tracking-wider transition-all shadow-lg shadow-brand-blue/10 disabled:opacity-50 flex items-center justify-center gap-2 font-sans"
               >
-                {loginLoading ? 'Authenticating...' : 'Secure Login'}
+                {loginLoading ? 'Authenticating...' : 'Secure Admin Login'}
               </button>
             </form>
           )}
 
           <div className="mt-6 pt-5 border-t border-slate-100 text-[10px] text-slate-400 text-center font-medium leading-relaxed font-sans">
             💡 <strong>Testing Credentials:</strong><br />
-            • <strong>Phone Login:</strong> Use dummy number <strong className="text-brand-blue font-bold">1234567890</strong> or <strong className="text-brand-blue font-bold">0000000000</strong> with any 4-digit code.<br />
-            • <strong>Password Login:</strong> Use <strong className="text-brand-blue font-bold">mbhola099@gmail.com</strong> / <strong className="text-brand-blue font-bold">Panditain@#143</strong>.<br />
+            • <strong>Admin Login:</strong> Use <strong className="text-brand-blue font-bold">mbhola099@gmail.com</strong> / <strong className="text-brand-blue font-bold">Panditain@#143</strong>.<br />
             • <strong>Bypass Codes:</strong> You can enter <strong className="text-brand-orange font-bold">1234</strong> or <strong className="text-brand-orange font-bold">0000</strong> as verification codes.
           </div>
         </div>

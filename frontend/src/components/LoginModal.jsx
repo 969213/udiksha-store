@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
-import { X, Phone, KeyRound, Mail, ShieldAlert } from 'lucide-react';
+import { X, Phone, KeyRound, ShieldAlert } from 'lucide-react';
 
 export default function LoginModal({ isOpen, onClose, onLoginSuccess, triggerSmsAlert }) {
-  const [loginTab, setLoginTab] = useState('phone'); // 'phone' or 'password'
-  
   // Phone OTP Auth State
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
@@ -11,15 +9,6 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, triggerSms
   const [otpLoading, setOtpLoading] = useState(false);
   const [verifyLoading, setVerifyLoading] = useState(false);
   const [sentOtpCode, setSentOtpCode] = useState('');
-
-  // Email Password Auth State (Legacy Admin Login)
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [passwordLoading, setPasswordLoading] = useState(false);
-  const [twoFactorRequired, setTwoFactorRequired] = useState(false);
-  const [twoFactorOtp, setTwoFactorOtp] = useState('');
-  const [twoFactorLoading, setTwoFactorLoading] = useState(false);
-
   const [error, setError] = useState('');
 
   if (!isOpen) return null;
@@ -27,7 +16,6 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, triggerSms
   const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
     ? 'http://localhost:3000'
     : 'https://udiksha-backend.onrender.com';
-
 
   const handleSendOtp = async (e) => {
     e.preventDefault();
@@ -97,93 +85,15 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, triggerSms
     }
   };
 
-  const handlePasswordLogin = async (e) => {
-    e.preventDefault();
-    setError('');
-
-    if (!email || !password) {
-      setError('Please enter both email and password.');
-      return;
-    }
-
-    setPasswordLoading(true);
-    try {
-      const res = await fetch(`${API_URL}/api/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: email, password })
-      });
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || 'Invalid credentials.');
-      }
-
-      if (data.twoFactorRequired) {
-        setTwoFactorRequired(true);
-        if (triggerSmsAlert) {
-          triggerSmsAlert(email, data.otp || 'Check email or console');
-        }
-        return;
-      }
-
-      onLoginSuccess({
-        token: data.token,
-        username: data.username,
-        role: 'admin' // By definition, password logins here are admin
-      });
-      onClose();
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setPasswordLoading(false);
-    }
-  };
-
-  const handleVerifyTwoFactor = async (e) => {
-    e.preventDefault();
-    setError('');
-
-    if (!twoFactorOtp || twoFactorOtp.length !== 4) {
-      setError('Please enter the 4-digit verification code.');
-      return;
-    }
-
-    setTwoFactorLoading(true);
-    try {
-      const res = await fetch(`${API_URL}/api/auth/verify-2fa`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: email, otp: twoFactorOtp })
-      });
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || 'Verification failed.');
-      }
-
-      onLoginSuccess({
-        token: data.token,
-        username: data.username,
-        role: 'admin'
-      });
-      onClose();
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setTwoFactorLoading(false);
-    }
-  };
-
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm fade-in">
-      <div className="bg-white w-full max-w-md rounded-[32px] overflow-hidden shadow-2xl flex flex-col border border-white/20">
+      <div className="bg-white w-full max-w-md rounded-[32px] overflow-hidden shadow-2xl flex flex-col border border-white/20 font-sans">
         
         {/* Modal Header */}
         <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-xl">👤</span>
-            <h2 className="font-serif-brand text-xl font-bold text-slate-800">Secure Portal Login</h2>
+            <h2 className="font-serif-brand text-xl font-bold text-slate-800">Customer Login / Signup</h2>
           </div>
           <button 
             onClick={onClose}
@@ -193,32 +103,8 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, triggerSms
           </button>
         </div>
 
-        {/* Tab Selection */}
-        <div className="flex bg-slate-100 p-1 m-4 rounded-xl border border-slate-200">
-          <button
-            onClick={() => { setLoginTab('phone'); setError(''); }}
-            className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
-              loginTab === 'phone'
-                ? 'bg-white text-brand-blue shadow-sm border border-slate-200/50'
-                : 'text-slate-500 hover:text-brand-blue'
-            }`}
-          >
-            Phone & OTP
-          </button>
-          <button
-            onClick={() => { setLoginTab('password'); setError(''); }}
-            className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
-              loginTab === 'password'
-                ? 'bg-white text-brand-blue shadow-sm border border-slate-200/50'
-                : 'text-slate-500 hover:text-brand-blue'
-            }`}
-          >
-            Admin Password
-          </button>
-        </div>
-
         {/* Form Body */}
-        <div className="p-6 pt-2">
+        <div className="p-6 pt-6">
           {error && (
             <div className="mb-4 p-3 bg-red-50 border border-red-200/50 rounded-xl text-xs font-bold text-red-600 flex items-center gap-2">
               <ShieldAlert className="w-4 h-4" />
@@ -226,156 +112,85 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess, triggerSms
             </div>
           )}
 
-          {loginTab === 'phone' ? (
-            <div className="space-y-4">
-              {!otpSent ? (
-                <form onSubmit={handleSendOtp} className="space-y-4">
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1.5">Phone Number</label>
-                    <div className="relative flex items-center">
-                      <Phone className="absolute left-3 w-4 h-4 text-slate-400" />
-                      <input
-                        type="tel"
-                        required
-                        placeholder="e.g. 9519764098"
-                        value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
-                        className="w-full pl-10 pr-4 py-3 rounded-2xl border border-slate-200 focus:outline-none focus:border-brand-blue text-xs font-medium text-slate-700"
-                      />
-                    </div>
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={otpLoading}
-                    className="w-full py-4 bg-brand-blue hover:bg-brand-blue-dark text-white rounded-full font-bold text-xs uppercase tracking-wider transition-all shadow-lg shadow-brand-blue/10 disabled:opacity-50"
-                  >
-                    {otpLoading ? 'Generating OTP...' : 'Send Verification OTP'}
-                  </button>
-                </form>
-              ) : (
-                <form onSubmit={handleVerifyOtp} className="space-y-4">
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1.5">Enter OTP Code</label>
-                    <div className="relative flex items-center">
-                      <KeyRound className="absolute left-3 w-4 h-4 text-slate-400" />
-                      <input
-                        type="text"
-                        required
-                        maxLength={4}
-                        placeholder="Enter 4-digit OTP"
-                        value={otp}
-                        onChange={(e) => setOtp(e.target.value)}
-                        className="w-full pl-10 pr-4 py-3 rounded-2xl border border-slate-200 focus:outline-none focus:border-brand-blue text-xs font-medium text-slate-700 tracking-[0.5em] text-center"
-                      />
-                    </div>
-                    <span className="block text-[10px] text-slate-400 mt-1.5 text-center font-medium">
-                      Enter the OTP code shown in your screen SMS pop-up.
-                    </span>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setOtpSent(false)}
-                      className="w-1/3 py-4 border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-full font-bold text-xs uppercase tracking-wider transition-all"
-                    >
-                      Back
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={verifyLoading}
-                      className="w-2/3 py-4 bg-brand-orange hover:bg-brand-orange-dark text-white rounded-full font-bold text-xs uppercase tracking-wider transition-all shadow-lg shadow-brand-orange/10 disabled:opacity-50"
-                    >
-                      {verifyLoading ? 'Verifying...' : 'Verify & Login'}
-                    </button>
-                  </div>
-                </form>
-              )}
-
-              <div className="mt-4 pt-4 border-t border-slate-100 text-[10px] text-slate-400 text-center font-medium leading-relaxed">
-                Enter <strong className="text-brand-blue">+919519764098</strong> (Owner), <strong className="text-brand-blue">+918114247911</strong> (Developer), or dummy numbers <strong className="text-brand-blue font-bold">1234567890 / 0000000000</strong> to log in as Admin. Bypass codes are <strong className="text-brand-orange font-bold">1234</strong> or <strong className="text-brand-orange font-bold">0000</strong>.
-              </div>
-            </div>
-          ) : twoFactorRequired ? (
-            <form onSubmit={handleVerifyTwoFactor} className="space-y-4">
-              <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1.5">2-Step Verification Code</label>
-                <div className="relative flex items-center">
-                  <KeyRound className="absolute left-3 w-4 h-4 text-slate-400" />
-                  <input
-                    type="text"
-                    required
-                    maxLength={4}
-                    placeholder="Enter 4-digit OTP"
-                    value={twoFactorOtp}
-                    onChange={(e) => setTwoFactorOtp(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 rounded-2xl border border-slate-200 focus:outline-none focus:border-brand-blue text-xs font-medium text-slate-700 tracking-[0.5em] text-center"
-                  />
+          <div className="space-y-4">
+            {!otpSent ? (
+              <form onSubmit={handleSendOtp} className="space-y-4">
+                <div className="text-center mb-2">
+                  <p className="text-sm text-slate-500 font-medium leading-relaxed">
+                    Welcome to UDIKSHA Garment. Enter your mobile number to log in or register instantly.
+                  </p>
                 </div>
-                <span className="block text-[10px] text-slate-400 mt-1.5 text-center font-medium">
-                  We sent a 2-Step Verification code to your Gmail address. Check your inbox or console.
-                </span>
-              </div>
 
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setTwoFactorRequired(false)}
-                  className="w-1/3 py-4 border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-full font-bold text-xs uppercase tracking-wider transition-all"
-                >
-                  Back
-                </button>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1.5">Phone Number</label>
+                  <div className="relative flex items-center">
+                    <span className="absolute left-3 text-xs font-bold text-slate-500">+91</span>
+                    <input
+                      type="tel"
+                      required
+                      placeholder="Enter 10-digit number"
+                      maxLength={10}
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
+                      className="w-full pl-12 pr-4 py-3 rounded-2xl border border-slate-200 focus:outline-none focus:border-brand-blue text-xs font-medium text-slate-700"
+                    />
+                  </div>
+                </div>
+
                 <button
                   type="submit"
-                  disabled={twoFactorLoading}
-                  className="w-2/3 py-4 bg-brand-orange hover:bg-brand-orange-dark text-white rounded-full font-bold text-xs uppercase tracking-wider transition-all shadow-lg shadow-brand-orange/10 disabled:opacity-50"
+                  disabled={otpLoading}
+                  className="w-full py-4 bg-brand-blue hover:bg-brand-blue-dark text-white rounded-full font-bold text-xs uppercase tracking-wider transition-all shadow-lg shadow-brand-blue/10 disabled:opacity-50"
                 >
-                  {twoFactorLoading ? 'Verifying...' : 'Verify Code'}
+                  {otpLoading ? 'Generating OTP...' : 'Get Verification OTP'}
                 </button>
-              </div>
-            </form>
-          ) : (
-            <form onSubmit={handlePasswordLogin} className="space-y-4">
-              <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1.5">Admin Username</label>
-                <div className="relative flex items-center">
-                  <Mail className="absolute left-3 w-4 h-4 text-slate-400" />
-                  <input
-                    type="email"
-                    required
-                    placeholder="Enter Admin Email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 rounded-2xl border border-slate-200 focus:outline-none focus:border-brand-blue text-xs font-medium text-slate-700"
-                  />
+              </form>
+            ) : (
+              <form onSubmit={handleVerifyOtp} className="space-y-4">
+                <div className="text-center mb-2">
+                  <p className="text-sm text-slate-500 font-medium">
+                    We've sent a 4-digit verification code to <strong className="text-slate-800 font-bold">+91 {phone}</strong>.
+                  </p>
                 </div>
-              </div>
 
-              <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1.5">Password</label>
-                <div className="relative flex items-center">
-                  <KeyRound className="absolute left-3 w-4 h-4 text-slate-400" />
-                  <input
-                    type="password"
-                    required
-                    placeholder="Enter admin password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 rounded-2xl border border-slate-200 focus:outline-none focus:border-brand-blue text-xs font-medium text-slate-700"
-                  />
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1.5">Enter OTP Code</label>
+                  <div className="relative flex items-center">
+                    <KeyRound className="absolute left-3 w-4 h-4 text-slate-400" />
+                    <input
+                      type="text"
+                      required
+                      maxLength={4}
+                      placeholder="Enter 4-digit OTP"
+                      value={otp}
+                      onChange={(e) => setOtp(e.target.value)}
+                      className="w-full pl-10 pr-4 py-3 rounded-2xl border border-slate-200 focus:outline-none focus:border-brand-blue text-xs font-medium text-slate-700 tracking-[0.5em] text-center"
+                    />
+                  </div>
+                  <span className="block text-[10px] text-slate-400 mt-1.5 text-center font-medium">
+                    Enter the code from the notification popup or use standard bypass code <strong className="text-brand-orange font-bold">1234 / 0000</strong>.
+                  </span>
                 </div>
-              </div>
 
-              <button
-                type="submit"
-                disabled={passwordLoading}
-                className="w-full py-4 bg-brand-blue hover:bg-brand-blue-dark text-white rounded-full font-bold text-xs uppercase tracking-wider transition-all shadow-lg shadow-brand-blue/10 disabled:opacity-50"
-              >
-                {passwordLoading ? 'Authenticating...' : 'Secure Password Login'}
-              </button>
-            </form>
-          )}
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setOtpSent(false)}
+                    className="w-1/3 py-4 border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-full font-bold text-xs uppercase tracking-wider transition-all"
+                  >
+                    Back
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={verifyLoading}
+                    className="w-2/3 py-4 bg-brand-orange hover:bg-brand-orange-dark text-white rounded-full font-bold text-xs uppercase tracking-wider transition-all shadow-lg shadow-brand-orange/10 disabled:opacity-50"
+                  >
+                    {verifyLoading ? 'Verifying...' : 'Verify & Login'}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
         </div>
       </div>
     </div>

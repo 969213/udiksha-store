@@ -132,17 +132,6 @@ app.post('/api/auth/send-otp', (req, res) => {
     // Normalize phone number (remove spaces, dashes, ensure prefix)
     const cleanPhone = phone.replace(/[\s-]/g, '');
     
-    // Check if phone number belongs to owner or developer or dummy numbers
-    const isDummyPhone = cleanPhone === '1234567890' || cleanPhone === '0000000000';
-    const isAdminPhone = 
-      cleanPhone.includes('9519764098') || 
-      cleanPhone.includes('8114247911') ||
-      isDummyPhone;
-
-    // If Admin Phone, automatically route login OTP to the Admin Gmail
-    if (isAdminPhone && !email) {
-      email = 'mbhola099@gmail.com';
-    }
     
     // Generate a 4-digit OTP
     const otp = Math.floor(1000 + Math.random() * 9000).toString();
@@ -205,21 +194,8 @@ app.post('/api/auth/verify-otp', async (req, res) => {
       }
     }
     
-    // Check if phone number belongs to owner or developer
-    // Owner: +919519764098 or 9519764098
-    // Developer: +918114247911 or 8114247911
-    const isAdminPhone = 
-      cleanPhone.includes('9519764098') || 
-      cleanPhone.includes('8114247911') ||
-      isDummyPhone;
-      
     let role = 'customer';
     let username = cleanPhone;
-    
-    if (isAdminPhone) {
-      role = 'admin';
-      username = 'mbhola099@gmail.com'; // Log in as seeded admin
-    }
     
     const token = jwt.sign(
       { userId: cleanPhone, username, role },
