@@ -597,15 +597,6 @@ export default function Admin({ onLoginSuccess, triggerSmsAlert }) {
               </button>
             </form>
           )}
-
-          <div className="mt-8 pt-6 border-t border-slate-100 text-center flex flex-col gap-2 font-sans">
-            <span className="text-[9px] font-extrabold text-brand-orange bg-brand-orange/5 border border-brand-orange/10 px-3 py-1 rounded-full uppercase">
-              Demo Admin Password: mbhola099@gmail.com / Panditain@#143
-            </span>
-            <span className="text-[9px] font-extrabold text-brand-blue bg-brand-blue/5 border border-brand-blue/10 px-3 py-1 rounded-full uppercase">
-              Demo Admin Phones: +919519764098 or +918114247911
-            </span>
-          </div>
         </div>
       </div>
     );
